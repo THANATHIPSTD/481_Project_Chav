@@ -38,7 +38,6 @@ class Folder(db.Model):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
     bookmarks = db.relationship('Bookmark', backref='folder', lazy=True, cascade="all, delete-orphan")
 
 
