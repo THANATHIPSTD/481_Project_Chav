@@ -1,26 +1,38 @@
-# Auth
 from flask import Blueprint, request, jsonify
-from ..models import db, User
-from flask_jwt_extended import create_access_token
+from Backend.models import db, User
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
 auth_bp = Blueprint('auth', __name__)
+
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
 
     if not username or not password:
         return jsonify({"error": "Missing username or password"}), 400
-    if User.query.filter_by(username=username).first():
+
+    existing_user = db.session.execute(db.select(User).filter_by(username=username)).scalar()
+
+    if existing_user:
         return jsonify({"error": "Username already exists"}), 400
 
-    new_user = User(username=username)
+    new_user = User(
+        username=username,
+        first_name=first_name,
+        last_name=last_name
+    )
     new_user.set_password(password)
+
     db.session.add(new_user)
     db.session.commit()
+
     return jsonify({"message": "User registered successfully!"}), 201
+
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
@@ -28,7 +40,7 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    user = User.query.filter_by(username=username).first()
+    user = db.session.execute(db.select(User).filter_by(username=username)).scalar()
 
     if user and user.check_password(password):
         access_token = create_access_token(identity=str(user.id))
@@ -39,4 +51,43 @@ def login():
         }), 200
 
     return jsonify({"error": "Invalid username or password"}), 401
-#
+
+
+@auth_bp.route('/me', methods=['GET'])
+@jwt_required()
+def me():
+    user_id = get_jwt_identity()
+    user = db.session.execute(db.select(User).filter_by(id=user_id)).scalar()
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    return jsonify({
+        "id": user.id,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "preferences": user.preferences,
+        "created_at": user.created_at
+    }), 200
+
+
+@auth_bp.route('/update-preferences', methods=['POST'])
+@jwt_required()
+def update_preferences():
+    user_id = get_jwt_identity()
+    data = request.get_json()
+
+    pref_list = data.get('preferences', [])
+
+    user = db.session.execute(db.select(User).filter_by(id=user_id)).scalar()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    user.preferences = ",".join(pref_list)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Preferences saved successfully!",
+        "preferences": user.preferences
+    }), 200
