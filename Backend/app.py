@@ -2,6 +2,9 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
+from Backend.routes.bookmark_routes import bookmark_bp
+from Backend.routes.folder_routes import folder_bp
+from Backend.routes.rec_routes import rec_bp
 from config import Config
 from Backend.models import db
 from routes.auth_routes import auth_bp
@@ -22,6 +25,9 @@ def create_app():
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(search_bp, url_prefix='/api/search')
+    app.register_blueprint(rec_bp, url_prefix='/api/rec')
+    app.register_blueprint(folder_bp, url_prefix='/api/folders')
+    app.register_blueprint(bookmark_bp, url_prefix='/api/bookmarks')
 
     return app
 
