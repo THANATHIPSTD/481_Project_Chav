@@ -1,4 +1,4 @@
-from Backend.models import db, Bookmark, Folder
+from ..models import db, Bookmark, Folder
 
 
 def add_bookmark(user_id, recipe_id, folder_id, rating):

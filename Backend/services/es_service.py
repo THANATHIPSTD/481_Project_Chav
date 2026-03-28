@@ -6,21 +6,6 @@ import random
 es = Elasticsearch("http://localhost:9200")
 INDEX_NAME = "recipes"
 
-mapping_update = {
-    "properties": {
-        "RecipeCategory": {
-            "type": "text",
-            "fielddata": True
-        }
-    }
-}
-
-try:
-    response = es.indices.put_mapping(index=INDEX_NAME, body=mapping_update)
-    print("Update mapping", response)
-except Exception as e:
-    print("Error updating mapping:", e)
-
 
 def _format_recipe_hits(hits):
     results = []

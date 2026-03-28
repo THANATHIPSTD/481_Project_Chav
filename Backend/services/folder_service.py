@@ -1,4 +1,4 @@
-from Backend.models import db, Folder
+from ..models import db, Folder
 
 
 def create_folder(user_id, name, description=None):

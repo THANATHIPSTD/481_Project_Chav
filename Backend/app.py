@@ -1,15 +1,24 @@
+import os
+import sys
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
-from Backend.routes.bookmark_routes import bookmark_bp
-from Backend.routes.feed_routes import feed_bp
-from Backend.routes.folder_routes import folder_bp
-from Backend.routes.rec_routes import rec_bp
-from config import Config
-from Backend.models import db
-from routes.auth_routes import auth_bp
-from routes.search_routes import search_bp
+if __package__ is None or __package__ == "":
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+    __package__ = "Backend"
+
+from .routes.bookmark_routes import bookmark_bp
+from .routes.feed_routes import feed_bp
+from .routes.folder_routes import folder_bp
+from .routes.rec_routes import rec_bp
+from .config import Config
+from .models import db
+from .routes.auth_routes import auth_bp
+from .routes.search_routes import search_bp
 
 
 def create_app():
