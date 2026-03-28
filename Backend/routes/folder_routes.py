@@ -1,5 +1,9 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask import Blueprint, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from Backend.models import db, Folder, Bookmark
+from Backend.services.ml_service import get_folder_recommendations
 
 from Backend.services.folder_service import (
     create_folder, get_user_folders, update_folder,
@@ -91,5 +95,31 @@ def remove_folder(folder_id):
         return jsonify({"message": "Folder deleted successfully"}), 200
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@folder_bp.route('/<int:folder_id>/recommendations', methods=['GET'])
+@jwt_required()
+def recommend_for_folder(folder_id):
+    try:
+        user_id = int(get_jwt_identity())
+        folder = db.session.get(Folder, folder_id)
+
+        if not folder or folder.user_id != user_id:
+            return jsonify({"error": "Folder not found or unauthorized"}), 404
+
+        folder_bookmarks = Bookmark.query.filter_by(folder_id=folder_id).all()
+        recommended_data = get_folder_recommendations(folder.name, folder_bookmarks, top_k=12)
+
+        return jsonify({
+            "folder_id": folder.id,
+            "folder_name": folder.name,
+            "title": f"Menu suite for folder '{folder.name}'",
+            "data": recommended_data
+        }), 200
+
+    except ValueError:
+        return jsonify({"error": "Invalid user identity format"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500

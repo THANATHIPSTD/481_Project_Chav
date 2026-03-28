@@ -1,8 +1,25 @@
 #es
 from elasticsearch import Elasticsearch
+import random
+
 
 es = Elasticsearch("http://localhost:9200")
 INDEX_NAME = "recipes"
+
+mapping_update = {
+    "properties": {
+        "RecipeCategory": {
+            "type": "text",
+            "fielddata": True
+        }
+    }
+}
+
+try:
+    response = es.indices.put_mapping(index=INDEX_NAME, body=mapping_update)
+    print("Update mapping", response)
+except Exception as e:
+    print("Error updating mapping:", e)
 
 
 def _format_recipe_hits(hits):
@@ -121,3 +138,31 @@ def recommend_by_keywords(pref_query, page=1, size=12):
 def get_recipe_by_id(recipe_id):
     response = es.get(index=INDEX_NAME, id=recipe_id)
     return {"id": response['_id'], **response['_source']}
+
+
+def get_random_category_from_es():
+    search_body = {
+        "size": 0,
+        "aggs": {
+            "all_categories": {
+                "terms": {
+                    "field": "RecipeCategory",
+                    "size": 50
+                }
+            }
+        }
+    }
+
+    try:
+        response = es.search(index=INDEX_NAME, body=search_body)
+        buckets = response.get('aggregations', {}).get('all_categories', {}).get('buckets', [])
+        real_categories = [bucket['key'] for bucket in buckets if bucket['key']]
+
+        if real_categories:
+            return random.choice(real_categories)
+        else:
+            return "Dessert"
+
+    except Exception as e:
+        print(f"ES Aggregation Error: {e}")
+        return "Dessert"
