@@ -3,6 +3,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 
 from Backend.routes.bookmark_routes import bookmark_bp
+from Backend.routes.feed_routes import feed_bp
 from Backend.routes.folder_routes import folder_bp
 from Backend.routes.rec_routes import rec_bp
 from config import Config
@@ -28,6 +29,7 @@ def create_app():
     app.register_blueprint(rec_bp, url_prefix='/api/rec')
     app.register_blueprint(folder_bp, url_prefix='/api/folders')
     app.register_blueprint(bookmark_bp, url_prefix='/api/bookmarks')
+    app.register_blueprint(feed_bp, url_prefix='/api/feed')
 
     return app
 
@@ -38,5 +40,5 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
 
-    print("🌟 Starting Flask server on http://localhost:6000")
+    print("Starting Flask server on http://localhost:6000")
     app.run(host='0.0.0.0', port=6000, debug=True)
