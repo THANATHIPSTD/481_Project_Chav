@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import pickle
+from pathlib import Path
 
 from elasticsearch import Elasticsearch
 from sklearn.metrics.pairwise import cosine_similarity
@@ -8,18 +9,19 @@ from .es_service import get_recipe_by_id
 
 es = Elasticsearch("http://localhost:9200")
 
+models_dir = Path(__file__).resolve().parent.parent / "models"
 try:
-    with open('models/tfidf_model.pkl', 'rb') as f:
-        tfidf = pickle.load(f)
-    with open('models/svd_model.pkl', 'rb') as f:
-        svd = pickle.load(f)
-    with open('models/recipe_features.pkl', 'rb') as f:
-        recipe_features = pickle.load(f)
-    with open('models/lgbm_model.pkl', 'rb') as f:
-        lgbm_model = pickle.load(f)
+    tfidf = pickle.load(open(models_dir / "tfidf_model.pkl", "rb"))
+    svd = pickle.load(open(models_dir / "svd_model.pkl", "rb"))
+    recipe_features = pickle.load(open(models_dir / "recipe_features.pkl", "rb"))
+    lgbm_model = pickle.load(open(models_dir / "lgbm_model.pkl", "rb"))
     print("ML Models loaded successfully!")
+except FileNotFoundError as e:
+    print(f"Error loading models: {e}")
+    raise
 except Exception as e:
     print(f"Error loading models: {e}")
+    raise
 
 
 def _generate_recommendations_from_vector(target_vector, top_k=12):
