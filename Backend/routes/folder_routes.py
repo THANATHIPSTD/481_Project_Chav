@@ -1,15 +1,13 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from flask import Blueprint, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from Backend.models import db, Folder, Bookmark
-from Backend.services.ml_service import get_folder_recommendations
+from ..models import db, Folder, Bookmark
+from ..services.ml_service import get_folder_recommendations
 
-from Backend.services.folder_service import (
+from ..services.folder_service import (
     create_folder, get_user_folders, update_folder,
     delete_folder, get_bookmarks_in_folder
 )
-from Backend.services.es_service import get_recipe_by_id
+from ..services.es_service import get_recipe_by_id
 
 folder_bp = Blueprint('folders', __name__)
 

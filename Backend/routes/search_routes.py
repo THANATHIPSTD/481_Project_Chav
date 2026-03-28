@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from Backend.models import db, User
+from ..models import db, User
 
-from Backend.services.es_service import (
+from ..services.es_service import (
     search_recipes_in_es,
     get_autocomplete_suggestions,
     recommend_by_keywords,

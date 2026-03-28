@@ -1,9 +1,9 @@
 import random
 from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from Backend.models import db, User, Bookmark
-from Backend.services.es_service import search_recipes_in_es, get_random_category_from_es
-from Backend.services.ml_service import get_home_recommendations
+from ..models import db, User, Bookmark
+from ..services.es_service import search_recipes_in_es, get_random_category_from_es
+from ..services.ml_service import get_home_recommendations
 
 feed_bp = Blueprint('feed', __name__)
 

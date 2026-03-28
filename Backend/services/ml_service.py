@@ -4,7 +4,7 @@ import pickle
 
 from elasticsearch import Elasticsearch
 from sklearn.metrics.pairwise import cosine_similarity
-from Backend.services.es_service import get_recipe_by_id
+from .es_service import get_recipe_by_id
 
 es = Elasticsearch("http://localhost:9200")
 

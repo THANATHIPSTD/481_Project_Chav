@@ -2,11 +2,11 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from Backend.services.bookmark_service import (
+from ..services.bookmark_service import (
     add_bookmark, get_all_user_bookmarks,
     update_bookmark, delete_bookmark
 )
-from Backend.services.es_service import get_recipe_by_id
+from ..services.es_service import get_recipe_by_id
 
 bookmark_bp = Blueprint('bookmarks', __name__)
 
