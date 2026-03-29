@@ -14,9 +14,14 @@ api.interceptors.request.use((config) => {
 
 // Folder API Endpoints
 export const getFolders = () => api.get("/folders")
-export const createFolder = (name: string) => api.post("/folders", { name })
+export const createFolder = (name: string) =>
+  api.post("/folders", { name }).then((response) => ({
+    ...response,
+    data: response.data.folder ?? response.data,
+  }))
 export const deleteFolder = (id: string) => api.delete(`/folders/${id}`)
 export const getFolderBookmarks = (id: string) => api.get(`/folders/${id}/bookmarks`)
+export const getFolderRecommendations = (id: string) => api.get(`/folders/${id}/recommendations`)
 
 // Bookmark API Endpoints
 export const getBookmarks = () => api.get("/bookmarks")

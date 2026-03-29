@@ -103,5 +103,6 @@ htmlcov/
 # .python-version
 Backend/models
 Backend/data
+Backend/cache/
 .idea
 .vscode

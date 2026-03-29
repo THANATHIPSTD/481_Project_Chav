@@ -1,11 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useEffect } from "react"
+import { Suspense, lazy, useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Folder, Bookmark, Trash2, Plus, Star, ImageOff, BookmarkMinus } from "lucide-react"
-import { getFolders, createFolder, deleteFolder, getFolderBookmarks, removeBookmark } from "../services/api"
-import { RecipeModal } from "../components/RecipeModal"
+import { Folder, Bookmark, Trash2, Plus, Star, ImageOff, BookmarkMinus, Sparkles, Clock, Flame } from "lucide-react"
+import { handleRecipeImageError, handleRecipeImageLoad } from "@/lib/imageFallback"
+import api, { getFolders, createFolder, deleteFolder, getFolderBookmarks, getFolderRecommendations, removeBookmark } from "../services/api"
 import { ConfirmModal } from "../components/ConfirmModal"
 import type { RecipeDetail } from "../components/RecipeModal"
+
+const LazyRecipeModal = lazy(async () => {
+  const module = await import("@/components/RecipeModal")
+  return { default: module.RecipeModal }
+})
 
 const getFirstImage = (images: any) => {
   if (!images || images === "n/a" || images === "nan") return null
@@ -36,12 +41,16 @@ export default function Bookmarks() {
   const [selectedFolder, setSelectedFolder] = useState<any>(null)
   const [bookmarks, setBookmarks] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [recommendations, setRecommendations] = useState<any[]>([])
+  const [recommendationTitle, setRecommendationTitle] = useState("")
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
   
   // Recipe Modal states
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(null)
   const [isRecipeModalOpen, setIsRecipeModalOpen] = useState(false)
+  const [loadingRecipeDetail, setLoadingRecipeDetail] = useState(false)
 
   // Confirmation Models states
   const [folderToDelete, setFolderToDelete] = useState<string | null>(null)
@@ -54,6 +63,7 @@ export default function Bookmarks() {
   useEffect(() => {
     if (selectedFolder) {
       fetchBookmarks(selectedFolder.id)
+      fetchRecommendations(selectedFolder.id)
     }
   }, [selectedFolder])
 
@@ -81,6 +91,21 @@ export default function Bookmarks() {
     }
   }
 
+  const fetchRecommendations = async (folderId: string) => {
+    setLoadingRecommendations(true)
+    try {
+      const res = await getFolderRecommendations(folderId)
+      setRecommendations(res.data.data || [])
+      setRecommendationTitle(res.data.title || "")
+    } catch (e) {
+      console.error(e)
+      setRecommendations([])
+      setRecommendationTitle("")
+    } finally {
+      setLoadingRecommendations(false)
+    }
+  }
+
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return
     try {
@@ -101,6 +126,8 @@ export default function Bookmarks() {
       if (selectedFolder?.id === folderId) {
         setSelectedFolder(folders.length > 1 ? folders[0] : null)
         setBookmarks([])
+        setRecommendations([])
+        setRecommendationTitle("")
       }
     } catch (e) {
       console.error(e)
@@ -120,14 +147,32 @@ export default function Bookmarks() {
       ...bmark.recipe
     } as RecipeDetail
 
+    setLoadingRecipeDetail(false)
     setSelectedRecipe(mappedRecipe)
     setIsRecipeModalOpen(true)
+  }
+
+  const handleRecommendationClick = async (recipeId: string) => {
+    setIsRecipeModalOpen(true)
+    setLoadingRecipeDetail(true)
+    try {
+      const res = await api.get(`/search/${recipeId}`)
+      setSelectedRecipe(res.data)
+    } catch (e) {
+      console.error(e)
+      setSelectedRecipe(null)
+    } finally {
+      setLoadingRecipeDetail(false)
+    }
   }
 
   const executeDeleteBookmark = async (bookmarkId: string) => {
     try {
       await removeBookmark(bookmarkId);
       setBookmarks(bookmarks.filter(b => b.bookmark_id !== bookmarkId && b.id !== bookmarkId));
+      if (selectedFolder) {
+        fetchRecommendations(selectedFolder.id)
+      }
     } catch (err) {
       console.error(err);
       alert('Failed to remove bookmark');
@@ -221,94 +266,190 @@ export default function Bookmarks() {
                  <p className="text-zinc-500 max-w-sm mt-2">Explore recipes and add them to this folder to build your collection.</p>
                </div>
             ) : (
-              <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                {[...bookmarks].sort((a, b) => b.user_rating - a.user_rating).map((bmark, i) => {
-                  const imageUrl = getFirstImage(bmark.recipe?.Images) || getFirstImage(bmark.recipe_images);
-                  return (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: i * 0.05 }}
-                    key={bmark.id}
-                    onClick={() => handleRecipeClick(bmark)}
-                    className="group relative flex cursor-pointer flex-col overflow-hidden rounded-[2rem] border border-zinc-200/80 bg-white p-2 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl"
-                  >
-                    {/* Image */}
-                    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[1.5rem] bg-zinc-100">
-                      {imageUrl ? (
-                        <img 
-                          src={imageUrl} 
-                          alt={bmark.recipe?.Name || bmark.recipe_name || "Recipe"}
-                          loading="lazy"         
-                          decoding="async"       
-                          className="h-full w-full object-cover opacity-0 transition-all duration-700 hover:scale-105"
-                          onLoad={(e) => {
-                            (e.target as HTMLImageElement).classList.remove('opacity-0');
-                            (e.target as HTMLImageElement).classList.add('opacity-100');
-                          }}
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).src = ""; // fallback
-                            (e.target as HTMLImageElement).classList.add('hidden');
-                          }}
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-zinc-100">
-                          <ImageOff className="h-8 w-8 text-zinc-300" />
-                        </div>
-                      )}
-                      
-                      {/* Top Badges */}
-                      <div className="absolute left-3 top-3 flex gap-2 w-[calc(100%-24px)] justify-between">
-                        {bmark.recipe?.RecipeCategory && bmark.recipe.RecipeCategory !== "n/a" && (
-                          <div className="rounded-full bg-white/90 px-3 py-1 font-semibold text-xs text-zinc-800 shadow-sm backdrop-blur-md">
-                            {bmark.recipe.RecipeCategory}
+              <div className="space-y-12">
+                <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                  {[...bookmarks].sort((a, b) => b.user_rating - a.user_rating).map((bmark, i) => {
+                    const imageUrl = getFirstImage(bmark.recipe?.Images) || getFirstImage(bmark.recipe_images);
+                    return (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: i * 0.05 }}
+                      key={bmark.id}
+                      onClick={() => handleRecipeClick(bmark)}
+                      className="group relative flex cursor-pointer flex-col overflow-hidden rounded-[2rem] border border-zinc-200/80 bg-white p-2 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl"
+                    >
+                      {/* Image */}
+                      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[1.5rem] bg-zinc-100">
+                        {imageUrl ? (
+                          <img 
+                            src={imageUrl} 
+                            alt={bmark.recipe?.Name || bmark.recipe_name || "Recipe"}
+                            loading="lazy"         
+                            decoding="async"       
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-cover opacity-0 transition-all duration-700 hover:scale-105"
+                            onLoad={handleRecipeImageLoad}
+                            onError={handleRecipeImageError}
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center bg-zinc-100">
+                            <ImageOff className="h-8 w-8 text-zinc-300" />
                           </div>
                         )}
-                        <div className="flex gap-2 ml-auto">
-                            <button 
-                                onClick={(e) => handleDeleteBookmark(e, bmark.bookmark_id || bmark.id)}
-                                className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-red-500 shadow-sm backdrop-blur-md transition-transform hover:scale-110 hover:bg-red-500 hover:text-white"
-                                title="Remove bookmark"
-                            >
-                                <BookmarkMinus className="h-3 w-3" />
-                            </button>
+                        
+                        {/* Top Badges */}
+                        <div className="absolute left-3 top-3 flex gap-2 w-[calc(100%-24px)] justify-between">
+                          {bmark.recipe?.RecipeCategory && bmark.recipe.RecipeCategory !== "n/a" && (
+                            <div className="rounded-full bg-white/90 px-3 py-1 font-semibold text-xs text-zinc-800 shadow-sm backdrop-blur-md">
+                              {bmark.recipe.RecipeCategory}
+                            </div>
+                          )}
+                          <div className="flex gap-2 ml-auto">
+                              <button 
+                                  onClick={(e) => handleDeleteBookmark(e, bmark.bookmark_id || bmark.id)}
+                                  className="flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-red-500 shadow-sm backdrop-blur-md transition-transform hover:scale-110 hover:bg-red-500 hover:text-white"
+                                  title="Remove bookmark"
+                              >
+                                  <BookmarkMinus className="h-3 w-3" />
+                              </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Content */}
-                    <div className="flex flex-1 flex-col p-4 w-full">
-                      <h3 className="line-clamp-2 text-lg font-bold leading-tight tracking-tight text-zinc-900 transition-colors group-hover:text-blue-600 mb-2">
-                        {bmark.recipe?.Name || bmark.recipe_name || `Recipe #${bmark.recipe_id}`}
-                      </h3>
-                      
-                      {bmark.recipe?.RecipeIngredientParts && bmark.recipe.RecipeIngredientParts !== "n/a" && (
-                        <p className="line-clamp-2 text-sm text-zinc-500 mb-4 flex-1">
-                          <span className="font-semibold text-zinc-700">Ingredients:</span> {getIngredients(bmark.recipe.RecipeIngredientParts).join(", ")}
-                        </p>
-                      )}
+                      {/* Content */}
+                      <div className="flex flex-1 flex-col p-4 w-full">
+                        <h3 className="line-clamp-2 text-lg font-bold leading-tight tracking-tight text-zinc-900 transition-colors group-hover:text-blue-600 mb-2">
+                          {bmark.recipe?.Name || bmark.recipe_name || `Recipe #${bmark.recipe_id}`}
+                        </h3>
+                        
+                        {bmark.recipe?.RecipeIngredientParts && bmark.recipe.RecipeIngredientParts !== "n/a" && (
+                          <p className="line-clamp-2 text-sm text-zinc-500 mb-4 flex-1">
+                            <span className="font-semibold text-zinc-700">Ingredients:</span> {getIngredients(bmark.recipe.RecipeIngredientParts).join(", ")}
+                          </p>
+                        )}
 
-                      <div className="mt-auto pt-3 border-t border-zinc-100 flex items-center justify-between">
-                        <div className="flex items-center gap-1">Your rating</div>
-                        <div className="flex items-center gap-1">
-                          {bmark.user_rating > 0 ? (
-                            Array.from({ length: 5 }).map((_, idx) => (
-                              <Star 
-                                key={idx} 
-                                className={`h-4 w-4 ${idx < bmark.user_rating ? 'fill-yellow-400 text-yellow-400' : 'text-zinc-200'}`} 
-                              />
-                            ))
-                          ) : (
-                            <span className="text-xs text-zinc-400 font-medium">No rating</span>
+                        <div className="mt-auto pt-3 border-t border-zinc-100 flex items-center justify-between">
+                          <div className="flex items-center gap-1">Your rating</div>
+                          <div className="flex items-center gap-1">
+                            {bmark.user_rating > 0 ? (
+                              Array.from({ length: 5 }).map((_, idx) => (
+                                <Star 
+                                  key={idx} 
+                                  className={`h-4 w-4 ${idx < bmark.user_rating ? 'fill-yellow-400 text-yellow-400' : 'text-zinc-200'}`} 
+                                />
+                              ))
+                            ) : (
+                              <span className="text-xs text-zinc-400 font-medium">No rating</span>
+                            )}
+                          </div>
+                          {bmark.user_rating > 0 && (
+                            <span className="text-sm font-bold text-zinc-700">{parseFloat(bmark.user_rating).toFixed(1)}</span>
                           )}
                         </div>
-                        {bmark.user_rating > 0 && (
-                          <span className="text-sm font-bold text-zinc-700">{parseFloat(bmark.user_rating).toFixed(1)}</span>
-                        )}
                       </div>
+                    </motion.div>
+                  )})}
+                </div>
+
+                <section className="space-y-5">
+                  <div className="flex flex-col gap-4 rounded-[2rem] border border-zinc-200/70 bg-white p-6 shadow-sm md:flex-row md:items-end md:justify-between">
+                    <div className="max-w-3xl">
+                      <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Folder Recommendations
+                      </div>
+                      <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">Inspired by this folder</h2>
+                      <p className="mt-2 text-zinc-600">
+                        Suggestions generated from the recipes already saved in <span className="font-semibold text-zinc-800">{selectedFolder.name}</span>.
+                      </p>
                     </div>
-                  </motion.div>
-                )})}
+
+                    {recommendationTitle && (
+                      <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
+                        {recommendationTitle}
+                      </div>
+                    )}
+                  </div>
+
+                  {loadingRecommendations ? (
+                    <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                      {[1, 2, 3, 4].map((n) => (
+                        <div key={n} className="h-80 rounded-[2rem] bg-zinc-200 animate-pulse" />
+                      ))}
+                    </div>
+                  ) : recommendations.length === 0 ? (
+                    <div className="rounded-[2rem] border border-dashed border-zinc-300 bg-zinc-50/70 p-10 text-center text-zinc-500">
+                      Add more recipes to this folder and we will shape stronger recommendations around it.
+                    </div>
+                  ) : (
+                    <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                      {recommendations.map((recipe, i) => {
+                        const imageUrl = getFirstImage(recipe.image || recipe.Images)
+
+                        return (
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4, delay: i * 0.05 }}
+                            key={`recommend-${recipe.id}`}
+                            onClick={() => handleRecommendationClick(recipe.id)}
+                            className="group relative flex cursor-pointer flex-col overflow-hidden rounded-[2rem] border border-zinc-200/80 bg-white p-2 shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl"
+                          >
+                            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[1.5rem] bg-zinc-100">
+                              {imageUrl ? (
+                                <img
+                                  src={imageUrl}
+                                  alt={recipe.name || recipe.Name || "Recommended recipe"}
+                                  loading="lazy"
+                                  decoding="async"
+                                  referrerPolicy="no-referrer"
+                                  className="h-full w-full object-cover opacity-0 transition-all duration-700 hover:scale-105"
+                                  onLoad={handleRecipeImageLoad}
+                                  onError={handleRecipeImageError}
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-zinc-100">
+                                  <ImageOff className="h-8 w-8 text-zinc-300" />
+                                </div>
+                              )}
+
+                              <div className="absolute left-3 top-3 flex gap-2 w-[calc(100%-24px)] justify-between">
+                                {(recipe.category || recipe.RecipeCategory) && (recipe.category || recipe.RecipeCategory) !== "n/a" && (
+                                  <div className="rounded-full bg-white/90 px-3 py-1 font-semibold text-xs text-zinc-800 shadow-sm backdrop-blur-md">
+                                    {recipe.category || recipe.RecipeCategory}
+                                  </div>
+                                )}
+                                {Number(recipe.rating || recipe.AggregatedRating) > 0 && (
+                                  <div className="flex items-center gap-1 rounded-full bg-yellow-400/90 px-2 py-1 text-xs font-bold text-yellow-900 shadow-sm backdrop-blur-md">
+                                    <Star className="h-3 w-3 fill-yellow-900" />
+                                    {Number(recipe.rating || recipe.AggregatedRating).toFixed(1)}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-1 flex-col p-4">
+                              <h3 className="line-clamp-2 text-lg font-bold leading-tight tracking-tight text-zinc-900 transition-colors group-hover:text-blue-600">
+                                {recipe.name || recipe.Name}
+                              </h3>
+                              <div className="mt-auto pt-4 flex items-center justify-between text-zinc-500">
+                                <div className="flex items-center gap-1.5 text-sm font-medium">
+                                  <Clock className="h-4 w-4" />
+                                  {recipe.total_time || recipe.TotalTimeMins ? `${recipe.total_time || recipe.TotalTimeMins} min` : "N/A"}
+                                </div>
+                                <div className="flex items-center gap-1.5 text-sm font-medium">
+                                  <Flame className="h-4 w-4 text-orange-500" />
+                                  {recipe.calories || recipe.Calories ? `${Math.round(recipe.calories || recipe.Calories)} cal` : "N/A"}
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </section>
               </div>
             )}
           </div>
@@ -319,16 +460,21 @@ export default function Bookmarks() {
         )}
       </div>
 
-      <RecipeModal 
-        isOpen={isRecipeModalOpen}
-        onClose={() => setIsRecipeModalOpen(false)}
-        onBookmarkRemoved={() => {
-            if (selectedFolder) fetchBookmarks(selectedFolder.id);
-            setIsRecipeModalOpen(false);
-        }}
-        recipe={selectedRecipe}
-        loading={false}
-      />
+      <Suspense fallback={null}>
+        <LazyRecipeModal 
+          isOpen={isRecipeModalOpen}
+          onClose={() => setIsRecipeModalOpen(false)}
+          onBookmarkRemoved={() => {
+              if (selectedFolder) {
+                fetchBookmarks(selectedFolder.id);
+                fetchRecommendations(selectedFolder.id);
+              }
+              setIsRecipeModalOpen(false);
+          }}
+          recipe={selectedRecipe}
+          loading={loadingRecipeDetail}
+        />
+      </Suspense>
 
       <ConfirmModal
         isOpen={!!folderToDelete}

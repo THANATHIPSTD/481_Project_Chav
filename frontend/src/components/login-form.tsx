@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { ArrowRight, Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -29,6 +29,7 @@ export function LoginForm({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,7 +40,7 @@ export function LoginForm({
         username,
         password,
       })
-      navigate("/")
+      navigate(authService.normalizeNextPath(searchParams.get("next")), { replace: true })
     } catch (loginError) {
       console.error("Login error:", loginError)
       setError(authService.extractErrorMessage(loginError, "Invalid credentials. Please try again."))

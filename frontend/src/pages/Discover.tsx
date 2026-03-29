@@ -1,8 +1,14 @@
-import { useEffect, useState } from "react"
+import { Suspense, lazy, useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { Compass, Clock, Flame, Star, ImageOff } from "lucide-react"
 import api from "@/services/api"
-import { RecipeModal, type RecipeDetail } from "@/components/RecipeModal"
+import type { RecipeDetail } from "@/components/RecipeModal"
+import { handleRecipeImageError, handleRecipeImageLoad } from "@/lib/imageFallback"
+
+const LazyRecipeModal = lazy(async () => {
+  const module = await import("@/components/RecipeModal")
+  return { default: module.RecipeModal }
+})
 
 interface DiscoverRecipe {
   id: string
@@ -16,9 +22,14 @@ interface DiscoverRecipe {
 
 interface DiscoverResponse {
   title: string
+  page: number
+  limit: number
+  total_found: number
   keyword_used?: string
   data: DiscoverRecipe[]
 }
+
+const DISCOVER_PAGE_SIZE = 20
 
 const getFirstImage = (image: string | null) => {
   if (!image || image === "n/a" || image === "nan") return null
@@ -27,6 +38,7 @@ const getFirstImage = (image: string | null) => {
 
 export default function Discover() {
   const [discoverFeed, setDiscoverFeed] = useState<DiscoverResponse | null>(null)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -34,8 +46,15 @@ export default function Discover() {
 
   useEffect(() => {
     async function fetchDiscoverFeed() {
+      setLoading(true)
       try {
-        const response = await api.get<DiscoverResponse>("/feed/discover")
+        const response = await api.get<DiscoverResponse>("/feed/discover", {
+          params: {
+            page,
+            limit: DISCOVER_PAGE_SIZE,
+            ...(discoverFeed?.keyword_used ? { keyword: discoverFeed.keyword_used } : {}),
+          },
+        })
         setDiscoverFeed(response.data)
       } catch (error) {
         console.error("Failed to fetch discover feed", error)
@@ -46,7 +65,7 @@ export default function Discover() {
     }
 
     fetchDiscoverFeed()
-  }, [])
+  }, [page])
 
   const handleOpenModal = async (id: string) => {
     setIsModalOpen(true)
@@ -66,6 +85,8 @@ export default function Discover() {
     setIsModalOpen(false)
     setTimeout(() => setSelectedRecipe(null), 300)
   }
+
+  const totalPages = discoverFeed ? Math.max(Math.ceil(discoverFeed.total_found / discoverFeed.limit), 1) : 1
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-zinc-900">
@@ -87,8 +108,8 @@ export default function Discover() {
         </div>
 
         {loading ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {Array.from({ length: 8 }, (_, index) => (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            {Array.from({ length: DISCOVER_PAGE_SIZE }, (_, index) => (
               <div
                 key={`discover-skeleton-${index}`}
                 className="overflow-hidden rounded-[2rem] border border-zinc-200/70 bg-white p-2 shadow-sm"
@@ -106,8 +127,9 @@ export default function Discover() {
             ))}
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {discoverFeed?.data?.map((recipe, index) => {
+          <div className="space-y-6">
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+              {discoverFeed?.data?.map((recipe, index) => {
               const imageUrl = getFirstImage(recipe.image)
 
               return (
@@ -125,9 +147,12 @@ export default function Discover() {
                       <img
                         src={imageUrl}
                         alt={recipe.name}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        className="h-full w-full object-cover opacity-0 transition-transform duration-500 group-hover:scale-105"
                         loading="lazy"
                         decoding="async"
+                        referrerPolicy="no-referrer"
+                        onLoad={handleRecipeImageLoad}
+                        onError={handleRecipeImageError}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-zinc-100">
@@ -170,17 +195,44 @@ export default function Discover() {
                   </div>
                 </motion.button>
               )
-            })}
+              })}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setPage(page - 1)}
+                  disabled={page <= 1}
+                  className="rounded-full border border-zinc-200 bg-white px-5 py-3 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <div className="text-sm font-medium text-zinc-500">
+                  Page {page} of {totalPages}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page >= totalPages}
+                  className="rounded-full border border-zinc-200 bg-white px-5 py-3 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>
 
-      <RecipeModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        recipe={selectedRecipe}
-        loading={loadingDetail}
-      />
+      <Suspense fallback={null}>
+        <LazyRecipeModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          recipe={selectedRecipe}
+          loading={loadingDetail}
+        />
+      </Suspense>
     </div>
   )
 }

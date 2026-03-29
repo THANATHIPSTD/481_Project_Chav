@@ -43,6 +43,50 @@ def _format_recipe_hits(hits):
     return results
 
 
+def get_recipe_previews_by_ids(recipe_ids):
+    if not recipe_ids:
+        return []
+
+    normalized_ids = []
+    for recipe_id in recipe_ids:
+        try:
+            normalized_ids.append(int(recipe_id))
+        except (TypeError, ValueError):
+            continue
+
+    if not normalized_ids:
+        return []
+
+    search_body = {
+        "size": len(normalized_ids),
+        "_source": [
+            "RecipeId", "Name", "Images", "RecipeCategory",
+            "AggregatedRating", "Calories", "TotalTimeMins", "RecipeIngredientParts"
+        ],
+        "query": {
+            "terms": {
+                "RecipeId": normalized_ids
+            }
+        }
+    }
+
+    response = es.search(index=INDEX_NAME, body=search_body)
+    sources_by_recipe_id = {}
+
+    for hit in response["hits"]["hits"]:
+        source = hit["_source"]
+        source_recipe_id = str(source.get("RecipeId") or hit["_id"])
+        sources_by_recipe_id[source_recipe_id] = source
+
+    results = []
+    for recipe_id in normalized_ids:
+        source = sources_by_recipe_id.get(str(recipe_id))
+        if source:
+            results.append(format_recipe_preview(str(recipe_id), source))
+
+    return results
+
+
 def search_recipes_in_es(query, page=1, size=12, category_filter=None):
     search_body = {
         "from": (page - 1) * size,

@@ -1,9 +1,15 @@
-import { useState, useEffect, useRef } from "react"
+import { Suspense, lazy, useState, useEffect, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { Search as SearchIcon, ArrowRight, Star, Clock, Flame, ChevronLeft, ChevronRight, ImageOff } from "lucide-react"
 import api from "@/services/api"
-import { RecipeModal, type RecipeDetail } from "@/components/RecipeModal"
+import type { RecipeDetail } from "@/components/RecipeModal"
+import { handleRecipeImageError, handleRecipeImageLoad } from "@/lib/imageFallback"
+
+const LazyRecipeModal = lazy(async () => {
+  const module = await import("@/components/RecipeModal")
+  return { default: module.RecipeModal }
+})
 
 interface Recipe {
   id: string
@@ -336,15 +342,10 @@ export default function SearchPage() {
                             alt={recipe.name} 
                             loading="lazy"         
                             decoding="async"       
+                            referrerPolicy="no-referrer"
                             className="h-full w-full object-cover opacity-0 transition-all duration-700 hover:scale-105"
-                            onLoad={(e) => {
-                              (e.target as HTMLImageElement).classList.remove('opacity-0');
-                              (e.target as HTMLImageElement).classList.add('opacity-100');
-                            }}
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = ""; // fallback
-                              (e.target as HTMLImageElement).classList.add('hidden');
-                            }}
+                            onLoad={handleRecipeImageLoad}
+                            onError={handleRecipeImageError}
                           />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-zinc-100">
@@ -420,12 +421,14 @@ export default function SearchPage() {
       </main>
 
       {/* Recipe Modal */}
-      <RecipeModal 
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        recipe={selectedRecipe}
-        loading={loadingDetail}
-      />
+      <Suspense fallback={null}>
+        <LazyRecipeModal 
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          recipe={selectedRecipe}
+          loading={loadingDetail}
+        />
+      </Suspense>
     </div>
   )
 }

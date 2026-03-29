@@ -22,7 +22,7 @@ export const folderService = {
   },
   createFolder: async (name: string): Promise<Folder> => {
     const response = await api.post("/folders", { name })
-    return response.data
+    return response.data.folder ?? response.data
   },
   deleteFolder: async (folderId: string): Promise<void> => {
     await api.delete(`/folders/${folderId}`)
