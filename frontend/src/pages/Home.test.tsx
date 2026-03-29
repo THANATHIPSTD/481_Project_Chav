@@ -29,6 +29,7 @@ vi.mock("@/services/feedService", () => ({
     getForYouFeed: vi.fn(),
     getCategoryFeed: vi.fn(),
     getDiscoverFeed: vi.fn(),
+    getDiverseFeed: vi.fn(),
   },
 }))
 
@@ -62,6 +63,7 @@ describe("Home Page", () => {
     vi.mocked(feedService.getForYouFeed).mockResolvedValue(mockFeedResponse)
     vi.mocked(feedService.getCategoryFeed).mockResolvedValue(mockFeedResponse)
     vi.mocked(feedService.getDiscoverFeed).mockResolvedValue(mockFeedResponse)
+    vi.mocked(feedService.getDiverseFeed).mockResolvedValue(mockFeedResponse)
   })
 
   it("renders the for-you feed by default on mount", async () => {
@@ -74,15 +76,31 @@ describe("Home Page", () => {
     })
   })
 
-  it("switches to suggest (category) tab and fetches data", async () => {
+  it("switches to escape bubble tab and fetches data", async () => {
     render(<Home />)
 
     await waitFor(() => {
       expect(screen.getByText("Picked around your taste")).toBeInTheDocument()
     })
 
-    const suggestBtn = screen.getByRole("button", { name: /Suggest/i })
-    fireEvent.click(suggestBtn)
+    const diverseBtn = screen.getByRole("button", { name: /Escape Bubble/i })
+    fireEvent.click(diverseBtn)
+
+    await waitFor(() => {
+      expect(feedService.getDiverseFeed).toHaveBeenCalled()
+      expect(screen.getByText("Tired of the same old recipes?")).toBeInTheDocument()
+    })
+  })
+
+  it("switches to category randomizer tab and fetches data", async () => {
+    render(<Home />)
+
+    await waitFor(() => {
+      expect(screen.getByText("Picked around your taste")).toBeInTheDocument()
+    })
+
+    const categoryBtn = screen.getByRole("button", { name: /Category Randomizer/i })
+    fireEvent.click(categoryBtn)
 
     await waitFor(() => {
       expect(feedService.getCategoryFeed).toHaveBeenCalled()

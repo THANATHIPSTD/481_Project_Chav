@@ -236,5 +236,31 @@ class ESServiceUnitTests(unittest.TestCase):
         self.assertEqual(category, "Dinner")
 
 
+    def test_search_recipes_in_es_includes_recipe_instructions_in_query(self):
+        stub_es = StubElasticsearchClient(
+            search_response={
+                "hits": {"total": {"value": 0}, "hits": []}
+            }
+        )
+
+        original_es = es_service.es
+        es_service.es = stub_es
+        try:
+            es_service.search_recipes_in_es("bake chicken")
+        finally:
+            es_service.es = original_es
+
+        search_body = stub_es.search_calls[0]["body"]
+        fields = search_body["query"]["bool"]["must"][0]["multi_match"]["fields"]
+        
+        # Check if RecipeInstructions is in the search fields
+        instruction_field = [f for f in fields if f.startswith("RecipeInstructions")]
+        self.assertTrue(len(instruction_field) > 0, "RecipeInstructions should be in search fields")
+        self.assertIn("RecipeInstructions^1.5", fields)
+        
+        # Check if RecipeInstructions is in the _source list
+        self.assertIn("RecipeInstructions", search_body["_source"])
+
+
 if __name__ == "__main__":
     unittest.main()

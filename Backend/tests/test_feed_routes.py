@@ -21,6 +21,7 @@ fake_models, fake_db, FakeUser, FakeFolder, FakeBookmark = build_fake_models_mod
 fake_es_service = types.ModuleType("Backend.services.es_service")
 fake_es_service.search_recipes_in_es = lambda *args, **kwargs: {}
 fake_es_service.get_random_category_from_es = lambda: "Dessert"
+fake_es_service.get_random_keyword_from_es = lambda: "spicy"
 sys.modules["Backend.services.es_service"] = fake_es_service
 
 fake_image_service = types.ModuleType("Backend.services.image_service")
