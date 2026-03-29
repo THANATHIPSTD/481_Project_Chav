@@ -2,7 +2,7 @@ import random
 from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..models import db, User, Bookmark
-from ..services.es_service import search_recipes_in_es, get_random_category_from_es
+from ..services.es_service import search_recipes_in_es, get_random_category_from_es, format_recipe_preview
 from ..services.ml_service import get_home_recommendations
 
 feed_bp = Blueprint('feed', __name__)
@@ -17,7 +17,8 @@ def get_for_you_feed():
             user = db.session.get(User, user_id)
             bookmarks = Bookmark.query.filter_by(user_id=user_id).all()
 
-            data = get_home_recommendations(user, bookmarks, top_k=15)
+            raw_data = get_home_recommendations(user, bookmarks, top_k=15)
+            data = [format_recipe_preview(recipe["id"], recipe) for recipe in raw_data]
             title = "recommend for you"
 
             if not data:

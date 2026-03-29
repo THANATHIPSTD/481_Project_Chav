@@ -149,10 +149,10 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
               </div>
             </div>
           ) : recipe ? (
-            <div className="flex h-full flex-col overflow-y-auto w-full md:flex-row">
+            <div className="flex h-full flex-col w-full md:flex-row overflow-hidden relative">
               
               {/* Left Column - Image & Nutrition */}
-              <div className="w-full md:w-5/12 lg:w-2/5 flex flex-col bg-zinc-50 p-6 md:p-8 shrink-0">
+              <div className="w-full md:w-5/12 lg:w-2/5 flex flex-col bg-zinc-50 p-6 md:p-8 shrink-0 overflow-y-auto">
                 <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-zinc-200 shadow-sm group">
                   {hasImages ? (
                     <>
@@ -223,10 +223,31 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
                     </div>
                   </div>
                 </div>
+
+                {/* Bookmark UI */}
+                <div className="mt-8 pt-8 border-t border-zinc-200/80">
+                  {bookmarkInfo?.is_bookmarked ? (
+                    <button
+                      onClick={handleRemoveBookmark}
+                      className="w-full flex items-center justify-center gap-3 rounded-2xl bg-red-50 px-6 py-4 text-lg font-bold text-red-600 transition-all hover:bg-red-100 hover:text-red-700 hover:shadow-md border border-red-200/50 group"
+                    >
+                      <BookmarkMinus className="h-6 w-6 transition-transform group-hover:scale-110" />
+                      Remove Bookmark
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setIsBookmarkModalOpen(true)}
+                      className="w-full flex items-center justify-center gap-3 rounded-2xl bg-yellow-300 px-6 py-4 text-lg font-bold text-black transition-all hover:bg-zinc-800  hover:text-white hover:shadow-lg hover:-translate-y-0.5 group"
+                    >
+                      <BookmarkPlus className="h-6 w-6 transition-transform group-hover:scale-110" />
+                      Save Recipe
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Right Column - Content */}
-              <div className="w-full md:w-7/12 lg:w-3/5 p-6 md:p-10 md:pl-12 flex flex-col gap-8">
+              <div className="w-full h-full md:w-7/12 lg:w-3/5 p-6 md:p-10 md:pl-12 flex flex-col gap-8 overflow-y-auto">
                 
                 {/* Header Info */}
                 <div>
@@ -244,24 +265,6 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
                     <h2 className="text-3xl md:text-4xl font-black text-zinc-900 leading-tight">
                       {recipe.Name}
                     </h2>
-                    
-                    {bookmarkInfo?.is_bookmarked ? (
-                        <button
-                          onClick={handleRemoveBookmark}
-                          className="flex-shrink-0 flex h-10 w-10 sm:h-auto sm:w-auto items-center justify-center gap-2 rounded-full sm:rounded-xl bg-red-50 sm:px-4 sm:py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 hover:text-red-700"
-                        >
-                          <BookmarkMinus className="h-5 w-5" />
-                          <span className="hidden sm:inline">Saved</span>
-                        </button>
-                    ) : (
-                        <button
-                          onClick={() => setIsBookmarkModalOpen(true)}
-                          className="flex-shrink-0 flex h-10 w-10 sm:h-auto sm:w-auto items-center justify-center gap-2 rounded-full sm:rounded-xl bg-zinc-100 sm:px-4 sm:py-2 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-200 hover:text-zinc-900"
-                        >
-                          <BookmarkPlus className="h-5 w-5" />
-                          <span className="hidden sm:inline">Save</span>
-                        </button>
-                    )}
                   </div>
                   
                   {recipe.Description && recipe.Description !== "n/a" && (

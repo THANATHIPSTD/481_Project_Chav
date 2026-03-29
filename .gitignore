@@ -104,3 +104,4 @@ htmlcov/
 Backend/models
 Backend/data
 .idea
+.vscode
