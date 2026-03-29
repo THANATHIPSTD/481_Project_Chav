@@ -1,0 +1,41 @@
+@import "@fontsource-variable/inter";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+	font-family: "Inter Variable", system-ui, -apple-system, sans-serif;
+	background: radial-gradient(circle at 20% 20%, #ffffff 0%, #f5f5f5 35%, #e7e7e7 100%);
+	color: #0b0b0b;
+	letter-spacing: -0.01em;
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	background-attachment: fixed;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	background: transparent;
+}
+
+a {
+	color: inherit;
+	text-decoration: none;
+}
+
+::selection {
+	background: #0b0b0b;
+	color: #ffffff;
+}
+
+@layer utilities {
+  .capitalize-first::first-letter {
+    text-transform: capitalize;
+  }
+}

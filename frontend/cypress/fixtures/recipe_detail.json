@@ -1,0 +1,17 @@
+{
+  "id": "1",
+  "Name": "Creamy Mushroom Pasta",
+  "Description": "A delicious creamy pasta with fresh mushrooms.",
+  "Images": "['https://images.test/pasta.jpg']",
+  "RecipeCategory": "Pasta",
+  "AggregatedRating": 4.8,
+  "Calories": 450,
+  "FatContent": 20,
+  "ProteinContent": 15,
+  "CarbohydrateContent": 55,
+  "PrepTimeMins": 10,
+  "CookTimeMins": 20,
+  "TotalTimeMins": 30,
+  "RecipeIngredientParts": "['pasta', 'mushroom', 'cream', 'garlic']",
+  "RecipeInstructions": "1. Boil pasta. 2. Sauté mushrooms. 3. Mix everything with cream."
+}

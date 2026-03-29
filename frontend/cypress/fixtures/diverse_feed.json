@@ -1,0 +1,15 @@
+{
+  "results": [
+    {
+      "id": "2",
+      "Name": "Spicy Thai Green Curry",
+      "Images": "['https://images.test/curry.jpg']",
+      "RecipeCategory": "Thai",
+      "AggregatedRating": 4.9,
+      "Calories": 550,
+      "TotalTimeMins": 45,
+      "RecipeIngredientParts": "['chicken', 'green curry paste', 'coconut milk']"
+    }
+  ],
+  "count": 1
+}
