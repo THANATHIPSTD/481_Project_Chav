@@ -22,6 +22,24 @@ function saveToken(token: string, username?: string) {
   }
 }
 
+function isAuthenticated() {
+  return Boolean(localStorage.getItem("token"))
+}
+
+function normalizeNextPath(nextPath?: string | null) {
+  if (!nextPath || !nextPath.startsWith("/") || nextPath.startsWith("//")) {
+    return "/"
+  }
+  return nextPath
+}
+
+function buildLoginPath(nextPath: string) {
+  const params = new URLSearchParams({
+    next: normalizeNextPath(nextPath),
+  })
+  return `/login?${params.toString()}`
+}
+
 async function login(payload: LoginPayload) {
   const response = await api.post("/auth/login", payload)
   const token = response.data?.access_token ?? response.data?.token
@@ -50,5 +68,8 @@ export const authService = {
   login,
   register,
   logout,
+  isAuthenticated,
+  normalizeNextPath,
+  buildLoginPath,
   extractErrorMessage,
 }

@@ -17,8 +17,11 @@ bookmark_bp = Blueprint('bookmarks', __name__)
 def check_bookmark(recipe_id):
     try:
         user_id = get_jwt_identity()
-        status = check_user_bookmark(user_id, recipe_id)
+        normalized_recipe_id = int(recipe_id)
+        status = check_user_bookmark(user_id, normalized_recipe_id)
         return jsonify(status), 200
+    except ValueError:
+        return jsonify({"error": "Invalid recipe id"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -53,9 +56,9 @@ def create_bookmark():
         data = request.get_json()
 
         # รับค่าตามชื่อตัวแปรในรูปที่คุณส่งมา
-        recipe_id = data.get('recipeId')
-        folder_id = data.get('folderId')
-        rating = data.get('rating')
+        recipe_id = int(data.get('recipeId'))
+        folder_id = int(data.get('folderId'))
+        rating = int(data.get('rating'))
 
         if not all([recipe_id, folder_id, rating]):
             return jsonify({"error": "recipeId, folderId, and rating are required"}), 400

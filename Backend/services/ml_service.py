@@ -5,7 +5,7 @@ from pathlib import Path
 
 from elasticsearch import Elasticsearch
 from sklearn.metrics.pairwise import cosine_similarity
-from .es_service import get_recipe_by_id
+from .es_service import get_recipe_previews_by_ids
 
 es = Elasticsearch("http://localhost:9200")
 
@@ -59,15 +59,7 @@ def _generate_recommendations_from_vector(target_vector, top_k=15):
     results_df = pd.DataFrame({'RecipeId': candidate_ids, 'Score': preds})
     final_ids = results_df.sort_values('Score', ascending=False).head(top_k)['RecipeId'].tolist()
 
-    final_recipes = []
-    for rid in final_ids:
-        try:
-            recipe_data = get_recipe_by_id(rid)
-            if recipe_data: final_recipes.append(recipe_data)
-        except:
-            pass
-
-    return final_recipes
+    return get_recipe_previews_by_ids(final_ids)
 
 
 

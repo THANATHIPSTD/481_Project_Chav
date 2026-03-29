@@ -1,32 +1,15 @@
-import { useState, useEffect, useRef } from "react"
+import { Suspense, lazy, useState, useEffect, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import { Search as SearchIcon, ArrowRight, Star, Clock, Flame, ChevronLeft, ChevronRight, ImageOff } from "lucide-react"
-import api from "@/services/api"
-import { RecipeModal, type RecipeDetail } from "@/components/RecipeModal"
+import { handleRecipeImageError, handleRecipeImageLoad } from "@/lib/imageFallback"
+import { recipeService } from "@/services/recipeService"
+import type { AutocompleteOption, RecipeDetail, RecipeSearchResponse } from "@/types/recipe"
 
-interface Recipe {
-  id: string
-  name: string
-  image: string
-  category: string
-  rating: number
-  calories: number
-  total_time: number
-}
-
-interface SearchResponse {
-  results: Recipe[]
-  total_found: number
-  did_you_mean: string | null
-  page: number
-  limit: number
-}
-
-interface AutocompleteOption {
-  id: string
-  name: string
-}
+const LazyRecipeModal = lazy(async () => {
+  const module = await import("@/components/RecipeModal")
+  return { default: module.RecipeModal }
+})
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value)
@@ -50,7 +33,7 @@ export default function SearchPage() {
   const wrapperRef = useRef<HTMLDivElement>(null)
 
   // Search Results State
-  const [data, setData] = useState<SearchResponse | null>(null)
+  const [data, setData] = useState<RecipeSearchResponse | null>(null)
   const [loading, setLoading] = useState(false)
 
   // Modal State
@@ -62,8 +45,7 @@ export default function SearchPage() {
     setIsModalOpen(true)
     setLoadingDetail(true)
     try {
-      const res = await api.get(`/search/${id}`)
-      setSelectedRecipe(res.data)
+      setSelectedRecipe(await recipeService.getRecipeDetail(id))
     } catch (err) {
       console.error("Error fetching recipe details", err)
       setSelectedRecipe(null)
@@ -88,8 +70,7 @@ export default function SearchPage() {
         return
       }
       try {
-        const res = await api.get(`/search/autocomplete?q=${encodeURIComponent(debouncedQuery)}`)
-        setAutocompleteResults(res.data)
+        setAutocompleteResults(await recipeService.getAutocompleteSuggestions(debouncedQuery))
       } catch (err) {
         console.error("Autocomplete error", err)
       }
@@ -107,8 +88,7 @@ export default function SearchPage() {
     async function fetchSearch() {
       setLoading(true)
       try {
-        const res = await api.get(`/search?q=${encodeURIComponent(currentQuery)}&page=${currentPage}&limit=15`)
-        setData(res.data)
+        setData(await recipeService.searchRecipes(currentQuery, currentPage, 15))
       } catch (err) {
         console.error("Search error", err)
       } finally {
@@ -140,7 +120,7 @@ export default function SearchPage() {
     setSearchParams({ q: finalQ.trim(), page: "1" })
   }
 
-  const totalPages = data ? Math.ceil(data.total_found / data.limit) : 1
+  const totalPages = data ? Math.ceil(data.totalFound / data.limit) : 1
   const skeletonItems = Array.from({ length: 15 }, (_, i) => i)
 
   const isSearchActive = !!currentQuery || loading;
@@ -289,21 +269,21 @@ export default function SearchPage() {
                 <h2 className="text-2xl font-semibold">
                   Results for "<span className="text-zinc-500">{currentQuery}</span>"
                 </h2>
-                <p className="mt-1 text-zinc-500">{data.total_found} recipes found</p>
+                <p className="mt-1 text-zinc-500">{data.totalFound} recipes found</p>
               </div>
 
               {/* Did You Mean Suggestion */}
-              {data.did_you_mean && (
+              {data.didYouMean && (
                 <div className="inline-flex items-center gap-2 rounded-2xl border border-blue-200 bg-blue-50/50 px-4 py-3 text-sm text-blue-800">
                   <span className="font-medium">Did you mean:</span>
                   <button
                     onClick={() => {
-                      setQueryInput(data.did_you_mean!)
-                      handleSearchSubmit(undefined, data.did_you_mean!)
+                      setQueryInput(data.didYouMean!)
+                      handleSearchSubmit(undefined, data.didYouMean!)
                     }}
                     className="font-bold underline decoration-blue-300 underline-offset-4 hover:text-blue-900"
                   >
-                    {data.did_you_mean}
+                    {data.didYouMean}
                   </button>
                   <span className="ml-1">?</span>
                 </div>
@@ -336,15 +316,10 @@ export default function SearchPage() {
                             alt={recipe.name} 
                             loading="lazy"         
                             decoding="async"       
+                            referrerPolicy="no-referrer"
                             className="h-full w-full object-cover opacity-0 transition-all duration-700 hover:scale-105"
-                            onLoad={(e) => {
-                              (e.target as HTMLImageElement).classList.remove('opacity-0');
-                              (e.target as HTMLImageElement).classList.add('opacity-100');
-                            }}
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = ""; // fallback
-                              (e.target as HTMLImageElement).classList.add('hidden');
-                            }}
+                            onLoad={handleRecipeImageLoad}
+                            onError={handleRecipeImageError}
                           />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center bg-zinc-100">
@@ -420,12 +395,14 @@ export default function SearchPage() {
       </main>
 
       {/* Recipe Modal */}
-      <RecipeModal 
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        recipe={selectedRecipe}
-        loading={loadingDetail}
-      />
+      <Suspense fallback={null}>
+        <LazyRecipeModal 
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          recipe={selectedRecipe}
+          loading={loadingDetail}
+        />
+      </Suspense>
     </div>
   )
 }

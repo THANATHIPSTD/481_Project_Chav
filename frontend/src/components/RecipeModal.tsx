@@ -2,28 +2,13 @@
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Clock, Flame, Star, ChefHat, Info, ChevronDown, ChevronUp, BookmarkPlus, BookmarkMinus } from "lucide-react"
 import { useState, useEffect } from "react"
+import { useLocation, useNavigate } from "react-router-dom"
 import { BookmarkModal } from "./BookmarkModal"
-import { checkBookmarkStatus, removeBookmark } from "../services/api"
-
-export interface RecipeDetail {
-  id: string
-  Name: string
-  Images: string | string[]
-  Description: string
-  AggregatedRating: number
-  RecipeCategory: string
-  CookTimeMins: number
-  PrepTimeMins: number
-  TotalTimeMins: number
-  Calories: number
-  ProteinContent: number
-  FatContent: number
-  CarbohydrateContent: number
-  FiberContent: number
-  RecipeIngredientParts: string
-  RecipeInstructions: string
-  Keywords: string
-}
+import { authService } from "@/services/AuthService"
+import { bookmarkService, type BookmarkStatus } from "@/services/bookmarkService"
+import { handleRecipeImageError, handleRecipeImageLoad } from "@/lib/imageFallback"
+import { getDetailImageAttributes } from "@/lib/imageProxy"
+import type { RecipeDetail } from "@/types/recipe"
 
 interface RecipeModalProps {
   isOpen: boolean
@@ -34,11 +19,14 @@ interface RecipeModalProps {
 }
 
 export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loading }: RecipeModalProps) {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [showAllInstructions, setShowAllInstructions] = useState(false)
   const [currentImageIdx, setCurrentImageIdx] = useState(0)
   const [isBookmarkModalOpen, setIsBookmarkModalOpen] = useState(false)
 
-  const [bookmarkInfo, setBookmarkInfo] = useState<{ is_bookmarked: boolean; bookmark_id?: string } | null>(null)
+  const [bookmarkInfo, setBookmarkInfo] = useState<BookmarkStatus | null>(null)
+  const isLoggedIn = authService.isAuthenticated()
 
   // Reset states when modal closes or opens
   useEffect(() => {
@@ -47,19 +35,21 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
       setCurrentImageIdx(0)
       setIsBookmarkModalOpen(false)
       setBookmarkInfo(null)
+    } else if (recipe && recipe.id && isLoggedIn) {
+        bookmarkService
+          .checkBookmarkStatus(recipe.id)
+          .then((status) => setBookmarkInfo(status))
+          .catch((err) => console.error("Could not check bookmark status", err))
     } else if (recipe && recipe.id) {
-        // Fetch bookmark status
-        checkBookmarkStatus(recipe.id)
-            .then(res => setBookmarkInfo(res.data))
-            .catch(err => console.error("Could not check bookmark status", err))
+        setBookmarkInfo({ isBookmarked: false })
     }
-  }, [isOpen, recipe])
+  }, [isOpen, recipe, isLoggedIn])
 
   const handleRemoveBookmark = async () => {
-    if (bookmarkInfo?.bookmark_id) {
+    if (bookmarkInfo?.bookmarkId) {
         try {
-            await removeBookmark(bookmarkInfo.bookmark_id)
-            setBookmarkInfo({ is_bookmarked: false })
+            await bookmarkService.removeBookmark(bookmarkInfo.bookmarkId)
+            setBookmarkInfo({ isBookmarked: false })
             if (onBookmarkRemoved) onBookmarkRemoved()
         } catch (err) {
             console.error(err)
@@ -68,7 +58,12 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
     }
   }
 
-  if (!isOpen && !isBookmarkModalOpen) return null
+  const handleRequireLogin = () => {
+    const nextPath = `${location.pathname}${location.search}`
+    navigate(authService.buildLoginPath(nextPath))
+  }
+
+  if (!isOpen) return null
 
   // Function to get the all images as array
   const getAllImages = (images: string | string[]) => {
@@ -84,6 +79,7 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
 
   const imagesArray = recipe ? getAllImages(recipe.Images) : []
   const hasImages = imagesArray.length > 0
+  const currentImage = hasImages ? getDetailImageAttributes(imagesArray[currentImageIdx]) : null
 
   const nextImage = () => {
     setCurrentImageIdx((prev) => (prev + 1) % imagesArray.length)
@@ -157,9 +153,14 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
                   {hasImages ? (
                     <>
                       <img 
-                        src={imagesArray[currentImageIdx]} 
+                        src={currentImage?.src} 
+                        srcSet={currentImage?.srcSet}
+                        sizes={currentImage?.sizes}
                         alt={`${recipe.Name} image ${currentImageIdx + 1}`} 
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover opacity-0 transition-opacity duration-500"
+                        decoding="async"
+                        onLoad={handleRecipeImageLoad}
+                        onError={handleRecipeImageError}
                       />
                       {imagesArray.length > 1 && (
                         <>
@@ -226,7 +227,7 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
 
                 {/* Bookmark UI */}
                 <div className="mt-8 pt-8 border-t border-zinc-200/80">
-                  {bookmarkInfo?.is_bookmarked ? (
+                  {bookmarkInfo?.isBookmarked ? (
                     <button
                       onClick={handleRemoveBookmark}
                       className="w-full flex items-center justify-center gap-3 rounded-2xl bg-red-50 px-6 py-4 text-lg font-bold text-red-600 transition-all hover:bg-red-100 hover:text-red-700 hover:shadow-md border border-red-200/50 group"
@@ -235,13 +236,38 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
                       Remove Bookmark
                     </button>
                   ) : (
-                    <button
-                      onClick={() => setIsBookmarkModalOpen(true)}
-                      className="w-full flex items-center justify-center gap-3 rounded-2xl bg-yellow-300 px-6 py-4 text-lg font-bold text-black transition-all hover:bg-zinc-800  hover:text-white hover:shadow-lg hover:-translate-y-0.5 group"
-                    >
-                      <BookmarkPlus className="h-6 w-6 transition-transform group-hover:scale-110" />
-                      Save Recipe
-                    </button>
+                    <div>
+                      <button
+                        onClick={() => {
+                          if (!isLoggedIn) {
+                            handleRequireLogin()
+                            return
+                          }
+                          setIsBookmarkModalOpen((prev) => !prev)
+                        }}
+                        className="w-full flex items-center justify-center gap-3 rounded-2xl bg-yellow-300 px-6 py-4 text-lg font-bold text-black transition-all hover:bg-zinc-800  hover:text-white hover:shadow-lg hover:-translate-y-0.5 group"
+                      >
+                        <BookmarkPlus className="h-6 w-6 transition-transform group-hover:scale-110" />
+                        {!isLoggedIn ? "Log In to Save" : isBookmarkModalOpen ? "Close Save Panel" : "Save Recipe"}
+                      </button>
+
+                      {!isLoggedIn ? (
+                        <p className="mt-3 text-center text-sm text-zinc-500">
+                          Sign in first to save recipes to your folders.
+                        </p>
+                      ) : (
+                        <BookmarkModal
+                          isOpen={isBookmarkModalOpen}
+                          onClose={() => setIsBookmarkModalOpen(false)}
+                          onSaved={(bookmarkId) => {
+                            setBookmarkInfo({ isBookmarked: true, bookmarkId })
+                            setIsBookmarkModalOpen(false)
+                          }}
+                          recipeId={recipe.id}
+                          recipeName={recipe.Name}
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -369,19 +395,6 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
       </div>
     </AnimatePresence>
 
-    {recipe && (
-      <BookmarkModal
-        isOpen={isBookmarkModalOpen}
-        onClose={() => setIsBookmarkModalOpen(false)}
-        onSaved={() => {
-            // Re-fetch status so button updates correctly
-            checkBookmarkStatus(recipe.id)
-                .then(res => setBookmarkInfo(res.data))
-        }}
-        recipeId={recipe.id}
-        recipeName={recipe.Name}
-      />
-    )}
     </>
   )
 }

@@ -29,7 +29,7 @@ export function NavBar() {
     { name: "Home", path: "/", icon: Home },
     { name: "Search", path: "/search", icon: Search },
     { name: "Discover", path: "/recommendations", icon: Compass },
-    { name: "Bookmarks", path: "/bookmarks", icon: Bookmark },
+    { name: "Bookmarks", path: "/bookmarks", icon: Bookmark, requiresAuth: true },
   ]
 
   const handleLogout = () => {
@@ -51,10 +51,15 @@ export function NavBar() {
           {navItems.map((item) => {
             const isActive = location.pathname === item.path
             const Icon = item.icon
+            const destination = item.requiresAuth && !isLoggedIn
+              ? authService.buildLoginPath(item.path)
+              : item.path
+
             return (
               <Link
                 key={item.name}
-                to={item.path}
+                to={destination}
+                title={item.requiresAuth && !isLoggedIn ? "Log in to open bookmarks" : item.name}
                 className={`group relative flex items-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium transition-all ${
                   isActive ? "bg-zinc-100 text-zinc-900" : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
                 }`}

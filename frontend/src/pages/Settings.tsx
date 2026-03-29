@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input"
 import { Field, FieldLabel, FieldGroup, FieldDescription } from "@/components/ui/field"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, Save, User as UserIcon } from "lucide-react"
-import api from "@/services/api"
 import { authService } from "@/services/AuthService"
+import { profileService } from "@/services/profileService"
 
 export default function Settings() {
   const [firstName, setFirstName] = useState("")
@@ -18,10 +18,10 @@ export default function Settings() {
   useEffect(() => {
     async function fetchProfile() {
       try {
-        const response = await api.get("/auth/me")
-        setFirstName(response.data.first_name || "")
-        setLastName(response.data.last_name || "")
-        setUsername(response.data.username || localStorage.getItem("username") || "")
+        const profile = await profileService.getProfile()
+        setFirstName(profile.firstName)
+        setLastName(profile.lastName)
+        setUsername(profile.username || localStorage.getItem("username") || "")
       } catch {
         setMessage({ type: "error", text: "Failed to load profile data." })
       } finally {
@@ -37,11 +37,11 @@ export default function Settings() {
     setMessage({ type: "", text: "" })
 
     try {
-      await api.put("/auth/update-profile", {
-        first_name: firstName,
-        last_name: lastName
+      const response = await profileService.updateProfile({
+        firstName,
+        lastName,
       })
-      setMessage({ type: "success", text: "Profile updated successfully!" })
+      setMessage({ type: "success", text: response.message })
     } catch (err) {
       setMessage({ 
         type: "error", 

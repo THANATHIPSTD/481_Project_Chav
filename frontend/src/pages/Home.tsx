@@ -1,42 +1,12 @@
-import { useEffect, useState } from "react"
-import { motion } from "framer-motion"
-import { Sparkles, Layers3, Compass, Clock, Flame, Star, ImageOff } from "lucide-react"
-import api from "@/services/api"
-import { RecipeModal, type RecipeDetail } from "@/components/RecipeModal"
-
-interface FeedRecipe {
-  id: string
-  name: string
-  image: string | null
-  category: string | null
-  rating: number
-  calories: number
-  total_time: number
-}
-
-interface RawFeedRecipe {
-  id?: string | number
-  RecipeId?: string | number
-  name?: string
-  Name?: string
-  image?: string | null
-  Images?: string | string[] | null
-  category?: string | null
-  RecipeCategory?: string | null
-  rating?: number
-  AggregatedRating?: number
-  calories?: number
-  Calories?: number
-  total_time?: number
-  TotalTimeMins?: number
-}
-
-interface FeedResponse {
-  title: string
-  data: RawFeedRecipe[]
-  category?: string
-  keyword_used?: string
-}
+/* eslint-disable react-hooks/exhaustive-deps */
+import { Suspense, lazy, startTransition, useDeferredValue, useEffect, useMemo, useState } from "react"
+import { Sparkles, Layers3, Compass } from "lucide-react"
+import { feedService, type FeedResponse } from "@/services/feedService"
+import { recipeService } from "@/services/recipeService"
+import { HomeFeedGrid } from "@/components/HomeFeedGrid"
+import type { HomeFeedCardRecipe } from "@/components/HomeFeedCard"
+import { getHomeBackgroundImageUrl } from "@/lib/imageProxy"
+import type { RecipeDetail } from "@/types/recipe"
 
 interface FeedSectionConfig {
   key: "foryou" | "category" | "discover"
@@ -75,27 +45,13 @@ const sectionConfigs: FeedSectionConfig[] = [
 ]
 
 const DEFAULT_ACTIVE_TAB: FeedSectionConfig["key"] = "foryou"
-const MAX_VISIBLE_RECIPES = 8
+const FEED_PAGE_SIZE = 20
+const HOME_BACKGROUND_IMAGE_URL = getHomeBackgroundImageUrl()
 
-const getFirstImage = (image: string | string[] | null | undefined) => {
-  if (!image || image === "n/a" || image === "nan") return null
-  if (Array.isArray(image)) {
-    return image.find((item) => item && item !== "n/a" && item !== "nan") ?? null
-  }
-  return image
-}
-
-function normalizeFeedRecipe(recipe: RawFeedRecipe): FeedRecipe {
-  return {
-    id: String(recipe.id ?? recipe.RecipeId ?? ""),
-    name: recipe.name ?? recipe.Name ?? "Untitled recipe",
-    image: getFirstImage(recipe.image ?? recipe.Images),
-    category: recipe.category ?? recipe.RecipeCategory ?? null,
-    rating: Number(recipe.rating ?? recipe.AggregatedRating ?? 0),
-    calories: Number(recipe.calories ?? recipe.Calories ?? 0),
-    total_time: Number(recipe.total_time ?? recipe.TotalTimeMins ?? 0),
-  }
-}
+const LazyRecipeModal = lazy(async () => {
+  const module = await import("@/components/RecipeModal")
+  return { default: module.RecipeModal }
+})
 
 function FeedCardSkeleton() {
   return (
@@ -121,39 +77,52 @@ export default function Home() {
     discover: false,
   })
   const [activeTab, setActiveTab] = useState<FeedSectionConfig["key"]>(DEFAULT_ACTIVE_TAB)
+  const [pageByTab, setPageByTab] = useState<Record<FeedSectionConfig["key"], number>>({
+    foryou: 1,
+    category: 1,
+    discover: 1,
+  })
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   useEffect(() => {
     async function fetchSection(sectionKey: FeedSectionConfig["key"]) {
-      if (sections[sectionKey] || loadingSections[sectionKey]) return
-
       const section = sectionConfigs.find((item) => item.key === sectionKey)
       if (!section) return
 
       setLoadingSections((prev) => ({ ...prev, [sectionKey]: true }))
 
       try {
-        const response = await api.get<FeedResponse>(section.endpoint)
-        setSections((prev) => ({ ...prev, [sectionKey]: response.data }))
+        const currentSection = sections[sectionKey]
+        const currentPage = pageByTab[sectionKey]
+        const response =
+          sectionKey === "foryou"
+            ? await feedService.getForYouFeed(currentPage, FEED_PAGE_SIZE)
+            : sectionKey === "category"
+              ? await feedService.getCategoryFeed(currentPage, FEED_PAGE_SIZE, currentSection?.category)
+              : await feedService.getDiscoverFeed(currentPage, FEED_PAGE_SIZE, currentSection?.keywordUsed)
+        startTransition(() => {
+          setSections((prev) => ({ ...prev, [sectionKey]: response }))
+        })
       } catch (error) {
         console.error(`Failed to fetch ${sectionKey} feed`, error)
-        setSections((prev) => ({ ...prev, [sectionKey]: null }))
+        startTransition(() => {
+          setSections((prev) => ({ ...prev, [sectionKey]: null }))
+        })
       } finally {
         setLoadingSections((prev) => ({ ...prev, [sectionKey]: false }))
       }
     }
 
     fetchSection(activeTab)
-  }, [activeTab, sections, loadingSections])
+  }, [activeTab, pageByTab])
 
   const handleOpenModal = async (id: string) => {
     setIsModalOpen(true)
     setLoadingDetail(true)
     try {
-      const response = await api.get(`/search/${id}`)
-      setSelectedRecipe(response.data)
+      setSelectedRecipe(await recipeService.getRecipeDetail(id))
     } catch (error) {
       console.error("Error fetching recipe details", error)
       setSelectedRecipe(null)
@@ -171,18 +140,34 @@ export default function Home() {
   const activeFeed = sections[activeTab]
   const activeLoading = loadingSections[activeTab]
   const ActiveIcon = activeSection.icon
+  const normalizedRecipes = useMemo<HomeFeedCardRecipe[]>(
+    () => activeFeed?.data ?? [],
+    [activeFeed?.data],
+  )
+  const deferredRecipes = useDeferredValue(normalizedRecipes)
+  const isGridStale = deferredRecipes !== normalizedRecipes
+  const totalPages = activeFeed ? Math.max(Math.ceil(activeFeed.totalFound / activeFeed.limit), 1) : 1
+  const currentPage = pageByTab[activeTab]
+
+  const handleTabChange = (tab: FeedSectionConfig["key"]) => {
+    setActiveTab(tab)
+  }
+
+  const handlePageChange = (page: number) => {
+    setPageByTab((prev) => ({ ...prev, [activeTab]: page }))
+  }
 
   return (
     <div
-      className="relative min-h-screen font-sans text-zinc-900"
-      style={{ backgroundImage: "url('https://img1.pic.in.th/images/11309251.png')" }}
+      className="relative min-h-screen bg-cover bg-center bg-no-repeat font-sans text-zinc-900"
+      style={{ backgroundImage: `url('${HOME_BACKGROUND_IMAGE_URL}')` }}
     >
       <div className="absolute inset-0 bg-white/65 backdrop-blur-[2px]" />
 
       <main className="relative mx-auto max-w-[1500px] px-6 py-8 md:px-8 lg:px-10">
         <div className="mb-10 rounded-[2.5rem] border border-zinc-200/70 bg-white/90 p-8 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-zinc-400">Home Feed</p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">Explore what to cook without the lag</h1>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">Explore what to cook </h1>
           <p className="mt-3 max-w-3xl text-base text-zinc-600 md:text-lg">
             Switch between recommendation, suggest, and discover from one place. We only load the lane you open, so the page stays fast while the full menu remains visible.
           </p>
@@ -195,7 +180,7 @@ export default function Home() {
                 <button
                   key={section.key}
                   type="button"
-                  onClick={() => setActiveTab(section.key)}
+                  onClick={() => handleTabChange(section.key)}
                   className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition-all ${
                     isActive
                       ? "border-zinc-900 bg-zinc-900 text-white shadow-sm"
@@ -211,13 +196,7 @@ export default function Home() {
         </div>
 
         <section className="space-y-5">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
-            className="flex flex-col gap-4 rounded-[2rem] border border-zinc-200/70 bg-white/90 p-6 shadow-sm md:flex-row md:items-end md:justify-between"
-          >
+          <div className="flex flex-col gap-4 rounded-[2rem] border border-zinc-200/70 bg-white/90 p-6 shadow-sm md:flex-row md:items-end md:justify-between">
             <div className="max-w-3xl">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">
                 <ActiveIcon className="h-3.5 w-3.5" />
@@ -229,98 +208,62 @@ export default function Home() {
 
             {activeFeed?.title && (
               <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
-                {activeFeed.category ?? activeFeed.keyword_used ?? activeFeed.title}
+                {activeFeed.category ?? activeFeed.keywordUsed ?? activeFeed.title}
               </div>
             )}
-          </motion.div>
+          </div>
 
           {activeLoading ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {Array.from({ length: 4 }, (_, index) => (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+              {Array.from({ length: FEED_PAGE_SIZE }, (_, index) => (
                 <FeedCardSkeleton key={`${activeTab}-skeleton-${index}`} />
               ))}
             </div>
           ) : (
-            <motion.div
-              key={`grid-${activeTab}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.2 }}
-              className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-            >
-              {activeFeed?.data?.slice(0, MAX_VISIBLE_RECIPES).map((recipe) => {
-                const normalizedRecipe = normalizeFeedRecipe(recipe)
-                const imageUrl = normalizedRecipe.image
+            <div className="space-y-6">
+              <HomeFeedGrid
+                recipes={deferredRecipes}
+                currentPage={currentPage}
+                isStale={isGridStale}
+                onOpenRecipe={handleOpenModal}
+              />
 
-                return (
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4">
                   <button
-                    key={`${activeTab}-${normalizedRecipe.id}`}
                     type="button"
-                    className="group overflow-hidden rounded-[2rem] border border-zinc-200/70 bg-white p-2 text-left shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
-                    onClick={() => handleOpenModal(normalizedRecipe.id)}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage <= 1}
+                    className="rounded-full border border-zinc-200 bg-white px-5 py-3 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900 disabled:pointer-events-none disabled:opacity-50"
                   >
-                    <div className="relative aspect-[4/3] overflow-hidden rounded-[1.5rem] bg-zinc-100">
-                      {imageUrl ? (
-                        <img
-                          src={imageUrl}
-                          alt={normalizedRecipe.name}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-zinc-100">
-                          <ImageOff className="h-8 w-8 text-zinc-300" />
-                        </div>
-                      )}
-
-                      <div className="absolute left-3 top-3 flex w-[calc(100%-24px)] items-start justify-between gap-2">
-                        {normalizedRecipe.category && normalizedRecipe.category !== "n/a" ? (
-                          <span className="rounded-full bg-white/92 px-3 py-1 text-xs font-semibold text-zinc-800 shadow-sm backdrop-blur">
-                            {normalizedRecipe.category}
-                          </span>
-                        ) : (
-                          <span />
-                        )}
-
-                        {normalizedRecipe.rating > 0 && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-400/90 px-2.5 py-1 text-xs font-bold text-yellow-900 shadow-sm backdrop-blur">
-                            <Star className="h-3 w-3 fill-yellow-900" />
-                            {normalizedRecipe.rating.toFixed(1)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="p-4">
-                      <h3 className="line-clamp-2 text-lg font-semibold tracking-tight text-zinc-900 transition-colors group-hover:text-blue-600">
-                        {normalizedRecipe.name}
-                      </h3>
-                      <div className="mt-4 flex items-center justify-between text-sm font-medium text-zinc-500">
-                        <span className="inline-flex items-center gap-1.5">
-                          <Clock className="h-4 w-4" />
-                          {normalizedRecipe.total_time ? `${normalizedRecipe.total_time} min` : "N/A"}
-                        </span>
-                        <span className="inline-flex items-center gap-1.5">
-                          <Flame className="h-4 w-4 text-orange-500" />
-                          {normalizedRecipe.calories ? `${Math.round(normalizedRecipe.calories)} cal` : "N/A"}
-                        </span>
-                      </div>
-                    </div>
+                    Previous
                   </button>
-                )
-              })}
-            </motion.div>
+                  <div className="text-sm font-medium text-zinc-500">
+                    Page {currentPage} of {totalPages}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                    className="rounded-full border border-zinc-200 bg-white px-5 py-3 text-sm font-medium text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50 hover:text-zinc-900 disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </section>
       </main>
 
-      <RecipeModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        recipe={selectedRecipe}
-        loading={loadingDetail}
-      />
+      <Suspense fallback={null}>
+        <LazyRecipeModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          recipe={selectedRecipe}
+          loading={loadingDetail}
+        />
+      </Suspense>
     </div>
   )
 }
