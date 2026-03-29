@@ -14,9 +14,12 @@ function extractErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
-function saveToken(token: string) {
+function saveToken(token: string, username?: string) {
   localStorage.setItem("token", token)
   localStorage.setItem("auth_token", token)
+  if (username) {
+    localStorage.setItem("username", username)
+  }
 }
 
 async function login(payload: LoginPayload) {
@@ -25,10 +28,11 @@ async function login(payload: LoginPayload) {
   if (!token) {
     throw new Error("Token was not returned by the server")
   }
-  saveToken(token)
+  const username = response.data?.username
+  saveToken(token, username)
   return {
     token,
-    username: response.data?.username as string | undefined,
+    username,
   }
 }
 
@@ -36,8 +40,15 @@ async function register(payload: RegisterPayload) {
   return api.post("/auth/register", payload)
 }
 
+function logout() {
+  localStorage.removeItem("token")
+  localStorage.removeItem("auth_token")
+  localStorage.removeItem("username")
+}
+
 export const authService = {
   login,
   register,
+  logout,
   extractErrorMessage,
 }

@@ -33,3 +33,9 @@ a {
 	background: #0b0b0b;
 	color: #ffffff;
 }
+
+@layer utilities {
+  .capitalize-first::first-letter {
+    text-transform: capitalize;
+  }
+}

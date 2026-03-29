@@ -24,7 +24,7 @@ except Exception as e:
     raise
 
 
-def _generate_recommendations_from_vector(target_vector, top_k=12):
+def _generate_recommendations_from_vector(target_vector, top_k=15):
     sims = cosine_similarity(target_vector.reshape(1, -1), recipe_features.values)[0]
     candidate_indices = sims.argsort()[-100:][::-1]
     candidate_ids = recipe_features.index[candidate_indices].tolist()
@@ -71,7 +71,7 @@ def _generate_recommendations_from_vector(target_vector, top_k=12):
 
 
 
-def get_home_recommendations(user, bookmarks, top_k=12):
+def get_home_recommendations(user, bookmarks, top_k=15):
     user_vector = np.zeros(100)
 
     if bookmarks:
@@ -92,7 +92,7 @@ def get_home_recommendations(user, bookmarks, top_k=12):
 
 
 
-def get_folder_recommendations(folder_name, folder_bookmarks, top_k=12):
+def get_folder_recommendations(folder_name, folder_bookmarks, top_k=15):
     folder_vector = np.zeros(100)
 
     if folder_bookmarks:

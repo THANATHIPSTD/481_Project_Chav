@@ -13,6 +13,11 @@ def _format_recipe_hits(hits):
         source = hit['_source']
         images = source.get('Images', [])
         image_url = images[0] if isinstance(images, list) and len(images) > 0 else images
+        if isinstance(image_url, str):
+            image_url = image_url.replace("c(\"", "").replace("\")", "")
+            if ", " in image_url:
+                image_url = image_url.split(", ")[0].strip()
+            image_url = image_url.replace("\"", "").replace("'", "")
 
         results.append({
             "id": hit['_id'],
@@ -45,7 +50,9 @@ def search_recipes_in_es(query, page=1, size=12, category_filter=None):
                             "type": "most_fields",
                             "fields": [
                                 "Name^10", "Name.shingle^5", "Name.english^3",
-                                "Name.ngram^1", "Keywords^2", "RecipeIngredientParts^2"
+                                "Name.ngram^1", "Keywords^2", "RecipeIngredientParts^2",
+                                "RecipeInstructions^1"   
+
                             ],
                             "fuzziness": "AUTO"
                         }

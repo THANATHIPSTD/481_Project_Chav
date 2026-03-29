@@ -16,7 +16,7 @@ search_bp = Blueprint('search', __name__)
 def search_recipes():
     query = request.args.get('q', '')
     page = int(request.args.get('page', 1))
-    size = int(request.args.get('limit', 12))
+    size = int(request.args.get('limit', 15))
     category_filter = request.args.get('category', None)
 
     if not query:
