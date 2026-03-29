@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom"
 import { NavBar } from "@/components/NavBar"
+import { Footer } from "@/components/Footer"
 import { authService } from "@/services/AuthService"
 import Home from "./pages/Home"
 import Discover from "./pages/Discover"
@@ -24,39 +25,44 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <Router>
-      <NavBar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/recommendations" element={<Discover />} />
-        <Route path="/search" element={<SearchPage />} />
-        <Route
-          path="/bookmarks"
-          element={
-            <RequireAuth>
-              <Bookmarks />
-            </RequireAuth>
-          }
-        />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route
-          path="/preferences"
-          element={
-            <RequireAuth>
-              <Preferences />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <RequireAuth>
-              <Settings />
-            </RequireAuth>
-          }
-        />
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
+      <div className="flex flex-col min-h-screen">
+        <NavBar />
+        <main className="flex-grow">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/recommendations" element={<Discover />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route
+              path="/bookmarks"
+              element={
+                <RequireAuth>
+                  <Bookmarks />
+                </RequireAuth>
+              }
+            />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route
+              path="/preferences"
+              element={
+                <RequireAuth>
+                  <Preferences />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <RequireAuth>
+                  <Settings />
+                </RequireAuth>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </main>
+        <Footer />
+      </div>
     </Router>
   )
 }

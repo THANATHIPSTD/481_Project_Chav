@@ -94,7 +94,8 @@ def search_recipes_in_es(query, page=1, size=12, category_filter=None):
         "_source": [
             "Name", "Images", "RecipeCategory", "Keywords",
             "AggregatedRating", "Calories", "CookTimeMins",
-            "PrepTimeMins", "TotalTimeMins", "RecipeIngredientParts"
+            "PrepTimeMins", "TotalTimeMins", "RecipeIngredientParts",
+            "RecipeInstructions"
         ],
         "query": {
             "bool": {
@@ -105,9 +106,8 @@ def search_recipes_in_es(query, page=1, size=12, category_filter=None):
                             "type": "most_fields",
                             "fields": [
                                 "Name^10", "Name.shingle^5", "Name.english^3",
-                                "Name.ngram^1", "Keywords^2", "RecipeIngredientParts^2",
-                                "RecipeInstructions^1"   
-
+                                "Name.ngram^1", "Keywords^3", "RecipeIngredientParts^2",
+                                "RecipeInstructions^1.5"
                             ],
                             "fuzziness": "AUTO"
                         }
@@ -224,3 +224,33 @@ def get_random_category_from_es():
     except Exception as e:
         print(f"ES Aggregation Error: {e}")
         return "Dessert"
+
+
+def get_random_keyword_from_es():
+    # Since 'Keywords' is a text field without a keyword sub-field, 
+    # we'll use RecipeCategory or common recipe search terms for discovery to ensure variety.
+    search_body = {
+        "size": 0,
+        "aggs": {
+            "top_categories": {
+                "terms": {
+                    "field": "RecipeCategory",
+                    "size": 50
+                }
+            }
+        }
+    }
+
+    try:
+        response = es.search(index=INDEX_NAME, body=search_body)
+        buckets = response.get('aggregations', {}).get('top_categories', {}).get('buckets', [])
+        real_keywords = [bucket['key'] for bucket in buckets if bucket['key']]
+
+        if real_keywords:
+            return random.choice(real_keywords)
+        else:
+            return "healthy"
+
+    except Exception as e:
+        print(f"ES Aggregation Error: {e}")
+        return "healthy"

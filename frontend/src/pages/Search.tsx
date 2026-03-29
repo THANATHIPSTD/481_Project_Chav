@@ -199,14 +199,14 @@ export default function SearchPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute top-full left-0 right-0 mt-3 overflow-hidden rounded-3xl border border-zinc-200 bg-white/80 backdrop-blur-2xl shadow-2xl z-50"
+                  className="absolute top-full left-0 right-0 mt-3 overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl z-50"
                 >
                   <ul className="py-2">
                     {autocompleteResults.map((opt) => (
                       <li key={opt.id}>
                         <button
                           type="button"
-                          className="flex w-full items-center px-6 py-3 text-left transition-colors hover:bg-zinc-100/80 focus:bg-zinc-100 focus:outline-none"
+                          className="flex w-full items-center px-6 py-3 text-left transition-colors hover:bg-zinc-100 focus:bg-zinc-100 focus:outline-none"
                           onClick={() => {
                             setQueryInput(opt.name)
                             handleSearchSubmit(undefined, opt.name)
