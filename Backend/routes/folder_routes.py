@@ -108,7 +108,7 @@ def recommend_for_folder(folder_id):
             return jsonify({"error": "Folder not found or unauthorized"}), 404
 
         folder_bookmarks = Bookmark.query.filter_by(folder_id=folder_id).all()
-        recommended_data = get_folder_recommendations(folder.name, folder_bookmarks, top_k=12)
+        recommended_data = get_folder_recommendations(folder.name, folder_bookmarks, top_k=15)
 
         return jsonify({
             "folder_id": folder.id,

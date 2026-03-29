@@ -15,7 +15,7 @@ def recommend_by_preferences():
     user = db.session.get(User, user_id)
 
     page = int(request.args.get('page', 1))
-    size = int(request.args.get('limit', 12))
+    size = int(request.args.get('limit', 15))
 
     if not user or not user.preferences:
         pref_query = "Healthy"

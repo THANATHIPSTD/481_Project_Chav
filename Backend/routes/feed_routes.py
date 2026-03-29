@@ -17,14 +17,14 @@ def get_for_you_feed():
             user = db.session.get(User, user_id)
             bookmarks = Bookmark.query.filter_by(user_id=user_id).all()
 
-            data = get_home_recommendations(user, bookmarks, top_k=12)
+            data = get_home_recommendations(user, bookmarks, top_k=15)
             title = "recommend for you"
 
             if not data:
-                data = search_recipes_in_es(query="popular", size=12).get('results', [])
+                data = search_recipes_in_es(query="popular", size=15).get('results', [])
         else:
 
-            data = search_recipes_in_es(query="delicious", size=12).get('results', [])
+            data = search_recipes_in_es(query="delicious", size=15).get('results', [])
             title = "For you"
 
         return jsonify({"title": title, "data": data}), 200
@@ -38,7 +38,7 @@ def get_category_feed():
         selected_cat = get_random_category_from_es()
 
 
-        es_result = search_recipes_in_es(query="recipe", size=12, category_filter=selected_cat)
+        es_result = search_recipes_in_es(query="recipe", size=15, category_filter=selected_cat)
         data = es_result.get('results', [])
 
         return jsonify({
@@ -57,7 +57,7 @@ def get_discover_feed():
         keywords = ["easy", "quick", "spicy", "sweet", "baked", "fried"]
         random_kw = random.choice(keywords)
 
-        es_result = search_recipes_in_es(query=random_kw, size=12)
+        es_result = search_recipes_in_es(query=random_kw, size=15)
         data = es_result.get('results', [])
         return jsonify({
             "title": "Discovery new recipe",

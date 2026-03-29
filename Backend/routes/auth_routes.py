@@ -91,3 +91,29 @@ def update_preferences():
         "message": "Preferences saved successfully!",
         "preferences": user.preferences
     }), 200
+
+@auth_bp.route('/update-profile', methods=['PUT'])
+@jwt_required()
+def update_profile():
+    user_id = get_jwt_identity()
+    data = request.get_json()
+    
+    first_name = data.get('first_name')
+    last_name = data.get('last_name')
+    
+    user = db.session.execute(db.select(User).filter_by(id=user_id)).scalar()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+        
+    if first_name is not None:
+        user.first_name = first_name
+    if last_name is not None:
+        user.last_name = last_name
+        
+    db.session.commit()
+    
+    return jsonify({
+        "message": "Profile updated successfully!",
+        "first_name": user.first_name,
+        "last_name": user.last_name
+    }), 200

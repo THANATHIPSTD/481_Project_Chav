@@ -11,8 +11,19 @@ def _format_recipe_hits(hits):
     results = []
     for hit in hits:
         source = hit['_source']
+        
         images = source.get('Images', [])
-        image_url = images[0] if isinstance(images, list) and len(images) > 0 else images
+        image_url = None
+        
+        if isinstance(images, list) and len(images) > 0:
+            image_url = images[0]
+        elif isinstance(images, str):
+            if images not in ["n/a", "nan"]:
+                cleaned = images.replace('c("', '').replace('")', '')
+                img_list = [u.strip().replace('"', '').replace("'", "") for u in cleaned.split(", ")]
+                valid_urls = [u for u in img_list if u.startswith("http")]
+                if valid_urls:
+                    image_url = valid_urls[0]
 
         results.append({
             "id": hit['_id'],
@@ -45,7 +56,9 @@ def search_recipes_in_es(query, page=1, size=12, category_filter=None):
                             "type": "most_fields",
                             "fields": [
                                 "Name^10", "Name.shingle^5", "Name.english^3",
-                                "Name.ngram^1", "Keywords^2", "RecipeIngredientParts^2"
+                                "Name.ngram^1", "Keywords^2", "RecipeIngredientParts^2",
+                                "RecipeInstructions^1"   
+
                             ],
                             "fuzziness": "AUTO"
                         }
@@ -122,7 +135,18 @@ def recommend_by_keywords(pref_query, page=1, size=12):
 
 def get_recipe_by_id(recipe_id):
     response = es.get(index=INDEX_NAME, id=recipe_id)
-    return {"id": response['_id'], **response['_source']}
+    source = response.get('_source', {})
+    
+    images = source.get('Images', [])
+    if isinstance(images, str):
+        if images == "n/a" or images == "nan":
+            source['Images'] = []
+        else:
+            cleaned = images.replace('c("', '').replace('")', '')
+            img_list = [u.strip().replace('"', '').replace("'", "") for u in cleaned.split(", ")]
+            source['Images'] = [u for u in img_list if u.startswith("http")]
+            
+    return {"id": response['_id'], **source}
 
 
 def get_random_category_from_es():
