@@ -118,6 +118,50 @@ class MLServiceUnitTests(unittest.TestCase):
         np.testing.assert_allclose(vector_arg, np.full(100, 0.5))
         self.assertEqual(result, ["folder-ok"])
 
+    def test_get_diverse_recommendations_returns_serendipitous_results(self):
+        ml_service, get_recipe_previews_by_ids, tfidf, svd, recipe_features, lgbm_model = _import_ml_service_under_test()
+        
+        # Mock ES response for categories and candidate search
+        ml_service.es = Mock()
+        ml_service.es.search.side_effect = [
+            # First call: get categories for bookmarks
+            {"hits": {"hits": [{"_source": {"RecipeCategory": "Dessert"}}]}},
+            # Second call: get diverse candidates
+            {"hits": {"hits": [
+                {"_id": "101", "_source": {"RecipeId": "101"}},
+                {"_id": "202", "_source": {"RecipeId": "202"}}
+            ]}}
+        ]
+
+        bookmarks = [types.SimpleNamespace(recipe_id=303, rating=5)]
+        user = types.SimpleNamespace(id=1)
+
+        result = ml_service.get_diverse_recommendations(user, bookmarks, top_k=2)
+
+        # Result should be a subset of candidates (101 or 202)
+        self.assertTrue(set(result).issubset({"101", "202"}))
+        self.assertEqual(len(result), 2)
+        
+        # Verify must_not contains the "Dessert" category
+        search_args = ml_service.es.search.call_args_list[1].kwargs['body']
+        must_not = search_args['query']['bool']['must_not']
+        self.assertEqual(must_not[0]['term']['RecipeCategory'], "Dessert")
+
+    def test_get_diverse_recommendations_handles_empty_bookmarks(self):
+        ml_service, get_recipe_previews_by_ids, tfidf, svd, recipe_features, lgbm_model = _import_ml_service_under_test()
+        
+        # Mock ES response for diverse candidates
+        ml_service.es = Mock()
+        ml_service.es.search.return_value = {"hits": {"hits": [
+            {"_id": "101", "_source": {"RecipeId": "101"}},
+            {"_id": "202", "_source": {"RecipeId": "202"}}
+        ]}}
+
+        result = ml_service.get_diverse_recommendations(user=None, bookmarks=[], top_k=2)
+
+        self.assertEqual(len(result), 2)
+        self.assertTrue(set(result).issubset({"101", "202"}))
+
 
 if __name__ == "__main__":
     unittest.main()
