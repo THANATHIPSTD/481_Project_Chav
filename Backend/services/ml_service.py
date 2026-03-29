@@ -83,6 +83,77 @@ def get_home_recommendations(user, bookmarks, top_k=15):
     return _generate_recommendations_from_vector(user_vector, top_k)
 
 
+def get_diverse_recommendations(user, bookmarks, top_k=15):
+
+    # 1. Get user's favorite categories from bookmarks
+    user_categories = set()
+    if bookmarks:
+        # We need to fetch recipe details to see categories
+        bookmark_ids = [str(b.recipe_id) for b in bookmarks]
+        # Quick ES lookup for categories
+        query = {
+            "query": {"terms": {"RecipeId": bookmark_ids}},
+            "_source": ["RecipeCategory"],
+            "size": 50
+        }
+        res = es.search(index="recipes", body=query)
+        for hit in res['hits']['hits']:
+            cat = hit['_source'].get('RecipeCategory')
+            if cat: user_categories.add(cat)
+
+    # 2. Search for high-rated recipes, excluding user's common categories if possible
+    # We'll fetch a larger pool and filter/rank them for diversity
+    must_not = []
+    if user_categories:
+        must_not = [{"term": {"RecipeCategory": cat}} for cat in list(user_categories)[:5]]
+
+    search_query = {
+        "size": 100,
+        "query": {
+            "bool": {
+                "must": [
+                    {"range": {"AggregatedRating": {"gte": 4.5}}},
+                    {"range": {"ReviewCount": {"gte": 5}}}
+                ],
+                "must_not": must_not
+            }
+        }
+    }
+
+    try:
+        es_response = es.search(index="recipes", body=search_query)
+        candidates = []
+        for hit in es_response['hits']['hits']:
+            src = hit['_source']
+            rid = str(hit['_id'] if 'RecipeId' not in src else src['RecipeId'])
+            candidates.append(rid)
+        
+        if len(candidates) < top_k:
+            fallback_query = {"size": 50, "query": {"range": {"AggregatedRating": {"gte": 4.0}}}}
+            res = es.search(index="recipes", body=fallback_query)
+            candidates.extend([str(h['_source'].get('RecipeId') or h['_id']) for h in res['hits']['hits']])
+            candidates = list(dict.fromkeys(candidates)) # Deduplicate
+
+
+        valid_candidates = [rid for rid in candidates if rid in recipe_features.index]
+        if not valid_candidates:
+            return get_recipe_previews_by_ids(candidates[:top_k])
+
+        discovery_vector = np.random.normal(0, 0.1, 100)
+        
+        sims = cosine_similarity(discovery_vector.reshape(1, -1), recipe_features.loc[valid_candidates].values)[0]
+        
+        results_df = pd.DataFrame({'RecipeId': valid_candidates, 'Sim': sims})
+        diverse_pool = results_df.sort_values('Sim', ascending=False).head(40)
+        final_ids = diverse_pool.sample(min(top_k, len(diverse_pool)))['RecipeId'].tolist()
+
+        return get_recipe_previews_by_ids(final_ids)
+
+    except Exception as e:
+        print(f"Error in diverse recommendations: {e}")
+        return get_recipe_previews_by_ids(candidates[:top_k]) if 'candidates' in locals() else []
+
+
 
 def get_folder_recommendations(folder_name, folder_bookmarks, top_k=15):
     folder_vector = np.zeros(100)

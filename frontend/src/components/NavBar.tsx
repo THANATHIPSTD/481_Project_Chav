@@ -93,7 +93,7 @@ export function NavBar() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
-                    className="absolute right-0 mt-3 w-56 transform overflow-hidden rounded-2xl border border-zinc-200/60 bg-white/90 p-2 shadow-xl backdrop-blur-xl"
+                    className="absolute right-0 mt-3 w-56 transform overflow-hidden rounded-2xl border border-zinc-200/60 bg-white p-2 shadow-xl"
                   >
                     <div className="mb-2 px-3 pb-2 pt-1 border-b border-zinc-100">
                       <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Signed in as</p>

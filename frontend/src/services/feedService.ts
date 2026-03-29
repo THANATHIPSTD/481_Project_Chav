@@ -2,7 +2,7 @@ import api from "@/services/api"
 import { normalizeRecipePreview } from "@/services/recipeService"
 import type { RecipePreview } from "@/types/recipe"
 
-export type FeedSectionKey = "foryou" | "category" | "discover"
+export type FeedSectionKey = "foryou" | "category" | "discover" | "diverse"
 
 interface RawFeedResponse {
   title?: string
@@ -10,6 +10,7 @@ interface RawFeedResponse {
   limit?: number
   total_found?: number
   data?: Array<Record<string, unknown>>
+  results?: Array<Record<string, unknown>>
   category?: string
   keyword_used?: string
 }
@@ -25,12 +26,13 @@ export interface FeedResponse {
 }
 
 function normalizeFeedResponse(response: RawFeedResponse, fallbackPage: number, fallbackLimit: number): FeedResponse {
+  const rawData = response.data || response.results || []
   return {
     title: response.title ?? "",
     page: Number(response.page ?? fallbackPage),
     limit: Number(response.limit ?? fallbackLimit),
-    totalFound: Number(response.total_found ?? 0),
-    data: (response.data ?? []).map((recipe) => normalizeRecipePreview(recipe)),
+    totalFound: Number(response.total_found ?? rawData.length),
+    data: rawData.map((recipe) => normalizeRecipePreview(recipe)),
     category: response.category,
     keywordUsed: response.keyword_used,
   }
@@ -68,8 +70,17 @@ async function getDiscoverFeed(page: number, limit: number, keyword?: string) {
   return normalizeFeedResponse(response.data, page, limit)
 }
 
+async function getDiverseFeed(limit: number = 12) {
+  const response = await api.get<RawFeedResponse>("/rec/diverse", {
+    params: { limit },
+  })
+
+  return normalizeFeedResponse(response.data, 1, limit)
+}
+
 export const feedService = {
   getForYouFeed,
   getCategoryFeed,
   getDiscoverFeed,
+  getDiverseFeed,
 }

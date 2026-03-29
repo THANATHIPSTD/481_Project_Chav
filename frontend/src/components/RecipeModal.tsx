@@ -24,6 +24,7 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
   const [showAllInstructions, setShowAllInstructions] = useState(false)
   const [currentImageIdx, setCurrentImageIdx] = useState(0)
   const [isBookmarkModalOpen, setIsBookmarkModalOpen] = useState(false)
+  const [showSuccess, setShowSuccess] = useState(false)
 
   const [bookmarkInfo, setBookmarkInfo] = useState<BookmarkStatus | null>(null)
   const isLoggedIn = authService.isAuthenticated()
@@ -35,6 +36,7 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
       setCurrentImageIdx(0)
       setIsBookmarkModalOpen(false)
       setBookmarkInfo(null)
+      setShowSuccess(false)
     } else if (recipe && recipe.id && isLoggedIn) {
         bookmarkService
           .checkBookmarkStatus(recipe.id)
@@ -227,16 +229,53 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
 
                 {/* Bookmark UI */}
                 <div className="mt-8 pt-8 border-t border-zinc-200/80">
-                  {bookmarkInfo?.isBookmarked ? (
-                    <button
+                  <AnimatePresence mode="wait">
+                    {showSuccess ? (
+                      <motion.div
+                        key="success"
+                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="w-full flex items-center justify-center gap-3 rounded-2xl bg-green-500 px-6 py-4 text-lg font-bold text-white shadow-lg shadow-green-200"
+                      >
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ delay: 0.1, type: "spring", stiffness: 500 }}
+                        >
+                          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <motion.path 
+                              initial={{ pathLength: 0 }}
+                              animate={{ pathLength: 1 }}
+                              transition={{ duration: 0.3, delay: 0.2 }}
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth={3} 
+                              d="M5 13l4 4L19 7" 
+                            />
+                          </svg>
+                        </motion.div>
+                        Saved successfully!
+                      </motion.div>
+                    ) : bookmarkInfo?.isBookmarked ? (
+                    <motion.button
+                      key="remove"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
                       onClick={handleRemoveBookmark}
                       className="w-full flex items-center justify-center gap-3 rounded-2xl bg-red-50 px-6 py-4 text-lg font-bold text-red-600 transition-all hover:bg-red-100 hover:text-red-700 hover:shadow-md border border-red-200/50 group"
                     >
                       <BookmarkMinus className="h-6 w-6 transition-transform group-hover:scale-110" />
                       Remove Bookmark
-                    </button>
+                    </motion.button>
                   ) : (
-                    <div>
+                    <motion.div
+                      key="save"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
                       <button
                         onClick={() => {
                           if (!isLoggedIn) {
@@ -262,13 +301,16 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
                           onSaved={(bookmarkId) => {
                             setBookmarkInfo({ isBookmarked: true, bookmarkId })
                             setIsBookmarkModalOpen(false)
+                            setShowSuccess(true)
+                            setTimeout(() => setShowSuccess(false), 2000)
                           }}
                           recipeId={recipe.id}
                           recipeName={recipe.Name}
                         />
                       )}
-                    </div>
+                    </motion.div>
                   )}
+                  </AnimatePresence>
                 </div>
               </div>
 

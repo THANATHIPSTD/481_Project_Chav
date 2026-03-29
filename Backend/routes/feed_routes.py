@@ -2,7 +2,7 @@ import random
 from flask import Blueprint, current_app, jsonify, request, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..models import db, User, Bookmark
-from ..services.es_service import search_recipes_in_es, get_random_category_from_es
+from ..services.es_service import search_recipes_in_es, get_random_category_from_es, get_random_keyword_from_es
 from ..services.image_service import ImageCacheError, get_cached_optimized_image
 from ..services.ml_service import get_home_recommendations
 
@@ -115,8 +115,7 @@ def get_category_feed():
 def get_discover_feed():
     try:
         page, limit = _get_pagination_params()
-        keywords = ["easy", "quick", "spicy", "sweet", "baked", "fried"]
-        random_kw = request.args.get('keyword') or random.choice(keywords)
+        random_kw = request.args.get('keyword') or get_random_keyword_from_es()
 
         es_result = search_recipes_in_es(query=random_kw, page=page, size=limit)
         data = es_result.get('results', [])
