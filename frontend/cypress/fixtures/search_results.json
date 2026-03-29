@@ -1,0 +1,15 @@
+{
+  "total_found": 1,
+  "results": [
+    {
+      "id": "1",
+      "name": "Creamy Mushroom Pasta",
+      "image": "https://images.test/pasta.jpg",
+      "category": "Pasta",
+      "rating": 4.8,
+      "calories": 450,
+      "total_time": 30
+    }
+  ],
+  "did_you_mean": null
+}

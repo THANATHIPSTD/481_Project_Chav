@@ -1,0 +1,18 @@
+{
+  "title": "recommend for you",
+  "total_found": 1,
+  "data": [
+    {
+      "id": "1",
+      "Name": "Creamy Mushroom Pasta",
+      "Images": "['https://images.test/pasta.jpg']",
+      "RecipeCategory": "Pasta",
+      "AggregatedRating": 4.8,
+      "Calories": 450,
+      "TotalTimeMins": 30,
+      "RecipeIngredientParts": "['pasta', 'mushroom', 'cream']"
+    }
+  ],
+  "page": 1,
+  "limit": 20
+}
