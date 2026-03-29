@@ -1,7 +1,9 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { motion, AnimatePresence } from "framer-motion"
-import { X, Clock, Flame, Star, ChefHat, Info, ChevronDown, ChevronUp } from "lucide-react"
+import { X, Clock, Flame, Star, ChefHat, Info, ChevronDown, ChevronUp, BookmarkPlus, BookmarkMinus } from "lucide-react"
 import { useState, useEffect } from "react"
+import { BookmarkModal } from "./BookmarkModal"
+import { checkBookmarkStatus, removeBookmark } from "../services/api"
 
 export interface RecipeDetail {
   id: string
@@ -26,23 +28,47 @@ export interface RecipeDetail {
 interface RecipeModalProps {
   isOpen: boolean
   onClose: () => void
+  onBookmarkRemoved?: () => void
   recipe: RecipeDetail | null
   loading: boolean
 }
 
-export function RecipeModal({ isOpen, onClose, recipe, loading }: RecipeModalProps) {
+export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loading }: RecipeModalProps) {
   const [showAllInstructions, setShowAllInstructions] = useState(false)
   const [currentImageIdx, setCurrentImageIdx] = useState(0)
+  const [isBookmarkModalOpen, setIsBookmarkModalOpen] = useState(false)
+
+  const [bookmarkInfo, setBookmarkInfo] = useState<{ is_bookmarked: boolean; bookmark_id?: string } | null>(null)
 
   // Reset states when modal closes or opens
   useEffect(() => {
     if (!isOpen) {
       setShowAllInstructions(false)
       setCurrentImageIdx(0)
+      setIsBookmarkModalOpen(false)
+      setBookmarkInfo(null)
+    } else if (recipe && recipe.id) {
+        // Fetch bookmark status
+        checkBookmarkStatus(recipe.id)
+            .then(res => setBookmarkInfo(res.data))
+            .catch(err => console.error("Could not check bookmark status", err))
     }
-  }, [isOpen])
+  }, [isOpen, recipe])
 
-  if (!isOpen) return null
+  const handleRemoveBookmark = async () => {
+    if (bookmarkInfo?.bookmark_id) {
+        try {
+            await removeBookmark(bookmarkInfo.bookmark_id)
+            setBookmarkInfo({ is_bookmarked: false })
+            if (onBookmarkRemoved) onBookmarkRemoved()
+        } catch (err) {
+            console.error(err)
+            alert('Failed to remove bookmark')
+        }
+    }
+  }
+
+  if (!isOpen && !isBookmarkModalOpen) return null
 
   // Function to get the all images as array
   const getAllImages = (images: string | string[]) => {
@@ -87,6 +113,7 @@ export function RecipeModal({ isOpen, onClose, recipe, loading }: RecipeModalPro
   }
 
   return (
+    <>
     <AnimatePresence>
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-12 ">
         {/* Backdrop */}
@@ -213,9 +240,29 @@ export function RecipeModal({ isOpen, onClose, recipe, loading }: RecipeModalPro
                     </div>
                   </div>
                   
-                  <h2 className="text-3xl md:text-4xl font-black text-zinc-900 leading-tight mb-4">
-                    {recipe.Name}
-                  </h2>
+                  <div className="flex items-start justify-between gap-4 mb-4">
+                    <h2 className="text-3xl md:text-4xl font-black text-zinc-900 leading-tight">
+                      {recipe.Name}
+                    </h2>
+                    
+                    {bookmarkInfo?.is_bookmarked ? (
+                        <button
+                          onClick={handleRemoveBookmark}
+                          className="flex-shrink-0 flex h-10 w-10 sm:h-auto sm:w-auto items-center justify-center gap-2 rounded-full sm:rounded-xl bg-red-50 sm:px-4 sm:py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100 hover:text-red-700"
+                        >
+                          <BookmarkMinus className="h-5 w-5" />
+                          <span className="hidden sm:inline">Saved</span>
+                        </button>
+                    ) : (
+                        <button
+                          onClick={() => setIsBookmarkModalOpen(true)}
+                          className="flex-shrink-0 flex h-10 w-10 sm:h-auto sm:w-auto items-center justify-center gap-2 rounded-full sm:rounded-xl bg-zinc-100 sm:px-4 sm:py-2 text-sm font-semibold text-zinc-700 transition-colors hover:bg-zinc-200 hover:text-zinc-900"
+                        >
+                          <BookmarkPlus className="h-5 w-5" />
+                          <span className="hidden sm:inline">Save</span>
+                        </button>
+                    )}
+                  </div>
                   
                   {recipe.Description && recipe.Description !== "n/a" && (
                     <p className="text-zinc-600 text-base leading-relaxed">
@@ -255,7 +302,7 @@ export function RecipeModal({ isOpen, onClose, recipe, loading }: RecipeModalPro
 
                 <div className="h-px w-full bg-zinc-100"></div>
 
-                {/* Main Content Sections: Ingredients & Instructions (Row Layout) */}
+                {/* Main Content Sections: Ingredients */}
                 <div className="flex flex-col gap-10">
                   {/* Ingredients */}
                   <div>
@@ -277,22 +324,22 @@ export function RecipeModal({ isOpen, onClose, recipe, loading }: RecipeModalPro
                     <h3 className="text-xl font-bold text-zinc-900 mb-5 flex items-center gap-2">
                       Instructions
                     </h3>
-                    <div className="space-y-5">
+                    <div className="space-y-4">
                       {getInstructions(recipe.RecipeInstructions)
                         .slice(0, showAllInstructions ? undefined : 3)
                         .map((step, idx) => (
                         <div key={idx} className="flex gap-4">
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white">
+                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-[10px] font-bold text-white">
                             {idx + 1}
                           </div>
-                          <p className="text-zinc-700 pt-0.5 leading-relaxed">{step.replace(/^\d+\.\s*/, '')}</p>
+                          <p className="text-zinc-700 text-sm pt-0.5 leading-relaxed">{step.replace(/^\d+\.\s*/, '')}</p>
                         </div>
                       ))}
                     </div>
                     {getInstructions(recipe.RecipeInstructions).length > 3 && (
                       <button
                         onClick={() => setShowAllInstructions(!showAllInstructions)}
-                        className="mt-6 flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                        className="mt-5 flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
                       >
                         {showAllInstructions ? (
                           <>
@@ -318,5 +365,20 @@ export function RecipeModal({ isOpen, onClose, recipe, loading }: RecipeModalPro
         </motion.div>
       </div>
     </AnimatePresence>
+
+    {recipe && (
+      <BookmarkModal
+        isOpen={isBookmarkModalOpen}
+        onClose={() => setIsBookmarkModalOpen(false)}
+        onSaved={() => {
+            // Re-fetch status so button updates correctly
+            checkBookmarkStatus(recipe.id)
+                .then(res => setBookmarkInfo(res.data))
+        }}
+        recipeId={recipe.id}
+        recipeName={recipe.Name}
+      />
+    )}
+    </>
   )
 }

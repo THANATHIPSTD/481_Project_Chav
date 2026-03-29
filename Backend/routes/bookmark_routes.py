@@ -4,11 +4,23 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from ..services.bookmark_service import (
     add_bookmark, get_all_user_bookmarks,
-    update_bookmark, delete_bookmark
+    update_bookmark, delete_bookmark, check_user_bookmark
 )
 from ..services.es_service import get_recipe_by_id
 
 bookmark_bp = Blueprint('bookmarks', __name__)
+
+
+# GET /api/bookmarks/check/<recipe_id>
+@bookmark_bp.route('/check/<recipe_id>', methods=['GET'])
+@jwt_required()
+def check_bookmark(recipe_id):
+    try:
+        user_id = get_jwt_identity()
+        status = check_user_bookmark(user_id, recipe_id)
+        return jsonify(status), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # GET /api/bookmarks

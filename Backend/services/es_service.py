@@ -11,13 +11,19 @@ def _format_recipe_hits(hits):
     results = []
     for hit in hits:
         source = hit['_source']
+        
         images = source.get('Images', [])
-        image_url = images[0] if isinstance(images, list) and len(images) > 0 else images
-        if isinstance(image_url, str):
-            image_url = image_url.replace("c(\"", "").replace("\")", "")
-            if ", " in image_url:
-                image_url = image_url.split(", ")[0].strip()
-            image_url = image_url.replace("\"", "").replace("'", "")
+        image_url = None
+        
+        if isinstance(images, list) and len(images) > 0:
+            image_url = images[0]
+        elif isinstance(images, str):
+            if images not in ["n/a", "nan"]:
+                cleaned = images.replace('c("', '').replace('")', '')
+                img_list = [u.strip().replace('"', '').replace("'", "") for u in cleaned.split(", ")]
+                valid_urls = [u for u in img_list if u.startswith("http")]
+                if valid_urls:
+                    image_url = valid_urls[0]
 
         results.append({
             "id": hit['_id'],
@@ -129,7 +135,18 @@ def recommend_by_keywords(pref_query, page=1, size=12):
 
 def get_recipe_by_id(recipe_id):
     response = es.get(index=INDEX_NAME, id=recipe_id)
-    return {"id": response['_id'], **response['_source']}
+    source = response.get('_source', {})
+    
+    images = source.get('Images', [])
+    if isinstance(images, str):
+        if images == "n/a" or images == "nan":
+            source['Images'] = []
+        else:
+            cleaned = images.replace('c("', '').replace('")', '')
+            img_list = [u.strip().replace('"', '').replace("'", "") for u in cleaned.split(", ")]
+            source['Images'] = [u for u in img_list if u.startswith("http")]
+            
+    return {"id": response['_id'], **source}
 
 
 def get_random_category_from_es():

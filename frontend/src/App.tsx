@@ -6,6 +6,7 @@ import Register from "./pages/Register"
 import Preferences from "./pages/Preferences"
 import Settings from "./pages/Settings"
 import SearchPage from "./pages/Search"
+import Bookmarks from "./pages/Bookmarks"
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/search" element={<SearchPage />} />
+        <Route path="/bookmarks" element={<Bookmarks />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/preferences" element={<Preferences />} />

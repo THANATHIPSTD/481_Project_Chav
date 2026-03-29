@@ -41,6 +41,20 @@ def get_all_user_bookmarks(user_id):
     } for b in bookmarks]
 
 
+def check_user_bookmark(user_id, recipe_id):
+    bookmark = Bookmark.query.join(Folder).filter(
+        Bookmark.recipe_id == recipe_id,
+        Folder.user_id == user_id
+    ).first()
+    if bookmark:
+        return {
+            "is_bookmarked": True,
+            "bookmark_id": bookmark.id,
+            "folder_id": bookmark.folder_id,
+            "rating": bookmark.rating
+        }
+    return {"is_bookmarked": False}
+
 def update_bookmark(user_id, bookmark_id, new_folder_id=None, new_rating=None):
     bookmark = Bookmark.query.join(Folder).filter(Bookmark.id == bookmark_id, Folder.user_id == user_id).first()
     if not bookmark:

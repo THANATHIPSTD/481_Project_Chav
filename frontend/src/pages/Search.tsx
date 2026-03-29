@@ -160,7 +160,7 @@ export default function SearchPage() {
       {/* GIANT SEARCH BAR SECTION */}
       <motion.div 
         layout
-        className={`w-full transition-colors duration-500 flex flex-col ${
+        className={`w-full transition-colors duration-500 flex flex-col relative z-40 ${
           isSearchActive 
             ? "border-b border-zinc-200/60 bg-white/95 backdrop-blur-xl py-6 md:py-10 shadow-sm" 
             : "min-h-[85vh] items-center justify-center bg-transparent"
