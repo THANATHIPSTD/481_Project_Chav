@@ -1,37 +1,12 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { Suspense, lazy, startTransition, useDeferredValue, useEffect, useMemo, useState } from "react"
 import { Sparkles, Layers3, Compass } from "lucide-react"
-import api from "@/services/api"
-import type { RecipeDetail } from "@/components/RecipeModal"
+import { feedService, type FeedResponse } from "@/services/feedService"
+import { recipeService } from "@/services/recipeService"
 import { HomeFeedGrid } from "@/components/HomeFeedGrid"
 import type { HomeFeedCardRecipe } from "@/components/HomeFeedCard"
 import { getHomeBackgroundImageUrl } from "@/lib/imageProxy"
-
-interface RawFeedRecipe {
-  id?: string | number
-  RecipeId?: string | number
-  name?: string
-  Name?: string
-  image?: string | null
-  Images?: string | string[] | null
-  category?: string | null
-  RecipeCategory?: string | null
-  rating?: number
-  AggregatedRating?: number
-  calories?: number
-  Calories?: number
-  total_time?: number
-  TotalTimeMins?: number
-}
-
-interface FeedResponse {
-  title: string
-  page: number
-  limit: number
-  total_found: number
-  data: RawFeedRecipe[]
-  category?: string
-  keyword_used?: string
-}
+import type { RecipeDetail } from "@/types/recipe"
 
 interface FeedSectionConfig {
   key: "foryou" | "category" | "discover"
@@ -78,26 +53,6 @@ const LazyRecipeModal = lazy(async () => {
   return { default: module.RecipeModal }
 })
 
-const getFirstImage = (image: string | string[] | null | undefined) => {
-  if (!image || image === "n/a" || image === "nan") return null
-  if (Array.isArray(image)) {
-    return image.find((item) => item && item !== "n/a" && item !== "nan") ?? null
-  }
-  return image
-}
-
-function normalizeFeedRecipe(recipe: RawFeedRecipe): HomeFeedCardRecipe {
-  return {
-    id: String(recipe.id ?? recipe.RecipeId ?? ""),
-    name: recipe.name ?? recipe.Name ?? "Untitled recipe",
-    image: getFirstImage(recipe.image ?? recipe.Images),
-    category: recipe.category ?? recipe.RecipeCategory ?? null,
-    rating: Number(recipe.rating ?? recipe.AggregatedRating ?? 0),
-    calories: Number(recipe.calories ?? recipe.Calories ?? 0),
-    total_time: Number(recipe.total_time ?? recipe.TotalTimeMins ?? 0),
-  }
-}
-
 function FeedCardSkeleton() {
   return (
     <div className="overflow-hidden rounded-[2rem] border border-zinc-200/70 bg-white p-2 shadow-sm">
@@ -140,16 +95,15 @@ export default function Home() {
 
       try {
         const currentSection = sections[sectionKey]
-        const response = await api.get<FeedResponse>(section.endpoint, {
-          params: {
-            page: pageByTab[sectionKey],
-            limit: FEED_PAGE_SIZE,
-            ...(sectionKey === "category" && currentSection?.category ? { category: currentSection.category } : {}),
-            ...(sectionKey === "discover" && currentSection?.keyword_used ? { keyword: currentSection.keyword_used } : {}),
-          },
-        })
+        const currentPage = pageByTab[sectionKey]
+        const response =
+          sectionKey === "foryou"
+            ? await feedService.getForYouFeed(currentPage, FEED_PAGE_SIZE)
+            : sectionKey === "category"
+              ? await feedService.getCategoryFeed(currentPage, FEED_PAGE_SIZE, currentSection?.category)
+              : await feedService.getDiscoverFeed(currentPage, FEED_PAGE_SIZE, currentSection?.keywordUsed)
         startTransition(() => {
-          setSections((prev) => ({ ...prev, [sectionKey]: response.data }))
+          setSections((prev) => ({ ...prev, [sectionKey]: response }))
         })
       } catch (error) {
         console.error(`Failed to fetch ${sectionKey} feed`, error)
@@ -168,8 +122,7 @@ export default function Home() {
     setIsModalOpen(true)
     setLoadingDetail(true)
     try {
-      const response = await api.get(`/search/${id}`)
-      setSelectedRecipe(response.data)
+      setSelectedRecipe(await recipeService.getRecipeDetail(id))
     } catch (error) {
       console.error("Error fetching recipe details", error)
       setSelectedRecipe(null)
@@ -187,13 +140,13 @@ export default function Home() {
   const activeFeed = sections[activeTab]
   const activeLoading = loadingSections[activeTab]
   const ActiveIcon = activeSection.icon
-  const normalizedRecipes = useMemo(
-    () => activeFeed?.data?.map(normalizeFeedRecipe) ?? [],
+  const normalizedRecipes = useMemo<HomeFeedCardRecipe[]>(
+    () => activeFeed?.data ?? [],
     [activeFeed?.data],
   )
   const deferredRecipes = useDeferredValue(normalizedRecipes)
   const isGridStale = deferredRecipes !== normalizedRecipes
-  const totalPages = activeFeed ? Math.max(Math.ceil(activeFeed.total_found / activeFeed.limit), 1) : 1
+  const totalPages = activeFeed ? Math.max(Math.ceil(activeFeed.totalFound / activeFeed.limit), 1) : 1
   const currentPage = pageByTab[activeTab]
 
   const handleTabChange = (tab: FeedSectionConfig["key"]) => {
@@ -255,7 +208,7 @@ export default function Home() {
 
             {activeFeed?.title && (
               <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
-                {activeFeed.category ?? activeFeed.keyword_used ?? activeFeed.title}
+                {activeFeed.category ?? activeFeed.keywordUsed ?? activeFeed.title}
               </div>
             )}
           </div>

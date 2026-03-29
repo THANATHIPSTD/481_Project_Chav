@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Check, Plus, Star } from "lucide-react"
-import { getFolders, createFolder, createBookmark } from "../services/api"
+import { bookmarkService } from "@/services/bookmarkService"
+import { folderService, type Folder } from "@/services/folderService"
 
 interface BookmarkModalProps {
   isOpen: boolean
@@ -13,7 +14,7 @@ interface BookmarkModalProps {
 }
 
 export function BookmarkModal({ isOpen, onClose, onSaved, recipeId, recipeName }: BookmarkModalProps) {
-  const [folders, setFolders] = useState<any[]>([])
+  const [folders, setFolders] = useState<Folder[]>([])
   const [selectedFolder, setSelectedFolder] = useState<string>("")
   const [rating, setRating] = useState<number>(0)
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
@@ -36,10 +37,10 @@ export function BookmarkModal({ isOpen, onClose, onSaved, recipeId, recipeName }
   const fetchFolders = async () => {
     setIsLoadingFolders(true)
     try {
-      const res = await getFolders()
-      setFolders(res.data)
-      if (res.data.length > 0) {
-        setSelectedFolder(String(res.data[0].id))
+      const nextFolders = await folderService.getFolders()
+      setFolders(nextFolders)
+      if (nextFolders.length > 0) {
+        setSelectedFolder(nextFolders[0].id)
       }
       setErrorMessage("")
     } catch (e) {
@@ -53,9 +54,9 @@ export function BookmarkModal({ isOpen, onClose, onSaved, recipeId, recipeName }
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return
     try {
-      const res = await createFolder(newFolderName)
-      setFolders((prevFolders) => [...prevFolders, res.data])
-      setSelectedFolder(String(res.data.id))
+      const newFolder = await folderService.createFolder(newFolderName)
+      setFolders((prevFolders) => [...prevFolders, newFolder])
+      setSelectedFolder(newFolder.id)
       setIsCreatingFolder(false)
       setNewFolderName("")
       setErrorMessage("")
@@ -73,8 +74,8 @@ export function BookmarkModal({ isOpen, onClose, onSaved, recipeId, recipeName }
     setLoading(true)
     try {
       const effectiveRating = rating > 0 ? rating : 5
-      const response = await createBookmark(recipeId, selectedFolder, effectiveRating)
-      if (onSaved) onSaved(String(response.data.bookmarkId))
+      const createdBookmark = await bookmarkService.createBookmark(recipeId, selectedFolder, effectiveRating)
+      if (onSaved) onSaved(createdBookmark.bookmarkId)
       setErrorMessage("")
       onClose()
     } catch (e) {

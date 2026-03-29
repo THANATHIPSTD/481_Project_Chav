@@ -1,43 +1,21 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { Suspense, lazy, useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { Compass, Clock, Flame, Star, ImageOff } from "lucide-react"
-import api from "@/services/api"
-import type { RecipeDetail } from "@/components/RecipeModal"
+import { feedService, type FeedResponse } from "@/services/feedService"
 import { handleRecipeImageError, handleRecipeImageLoad } from "@/lib/imageFallback"
+import { recipeService } from "@/services/recipeService"
+import type { RecipeDetail } from "@/types/recipe"
 
 const LazyRecipeModal = lazy(async () => {
   const module = await import("@/components/RecipeModal")
   return { default: module.RecipeModal }
 })
 
-interface DiscoverRecipe {
-  id: string
-  name: string
-  image: string | null
-  category: string | null
-  rating: number
-  calories: number
-  total_time: number
-}
-
-interface DiscoverResponse {
-  title: string
-  page: number
-  limit: number
-  total_found: number
-  keyword_used?: string
-  data: DiscoverRecipe[]
-}
-
 const DISCOVER_PAGE_SIZE = 20
 
-const getFirstImage = (image: string | null) => {
-  if (!image || image === "n/a" || image === "nan") return null
-  return image
-}
-
 export default function Discover() {
-  const [discoverFeed, setDiscoverFeed] = useState<DiscoverResponse | null>(null)
+  const [discoverFeed, setDiscoverFeed] = useState<FeedResponse | null>(null)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(null)
@@ -48,14 +26,8 @@ export default function Discover() {
     async function fetchDiscoverFeed() {
       setLoading(true)
       try {
-        const response = await api.get<DiscoverResponse>("/feed/discover", {
-          params: {
-            page,
-            limit: DISCOVER_PAGE_SIZE,
-            ...(discoverFeed?.keyword_used ? { keyword: discoverFeed.keyword_used } : {}),
-          },
-        })
-        setDiscoverFeed(response.data)
+        const response = await feedService.getDiscoverFeed(page, DISCOVER_PAGE_SIZE, discoverFeed?.keywordUsed)
+        setDiscoverFeed(response)
       } catch (error) {
         console.error("Failed to fetch discover feed", error)
         setDiscoverFeed(null)
@@ -71,8 +43,7 @@ export default function Discover() {
     setIsModalOpen(true)
     setLoadingDetail(true)
     try {
-      const response = await api.get(`/search/${id}`)
-      setSelectedRecipe(response.data)
+      setSelectedRecipe(await recipeService.getRecipeDetail(id))
     } catch (error) {
       console.error("Error fetching recipe details", error)
       setSelectedRecipe(null)
@@ -86,7 +57,7 @@ export default function Discover() {
     setTimeout(() => setSelectedRecipe(null), 300)
   }
 
-  const totalPages = discoverFeed ? Math.max(Math.ceil(discoverFeed.total_found / discoverFeed.limit), 1) : 1
+  const totalPages = discoverFeed ? Math.max(Math.ceil(discoverFeed.totalFound / discoverFeed.limit), 1) : 1
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] font-sans text-zinc-900">
@@ -100,9 +71,9 @@ export default function Discover() {
           <p className="mt-3 max-w-3xl text-base text-zinc-600 md:text-lg">
             This page uses the discovery feed directly, so the set feels more exploratory and less tied to your usual patterns.
           </p>
-          {discoverFeed?.keyword_used && (
+          {discoverFeed?.keywordUsed && (
             <div className="mt-5 inline-flex rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-600">
-              Keyword in this round: {discoverFeed.keyword_used}
+              Keyword in this round: {discoverFeed.keywordUsed}
             </div>
           )}
         </div>
@@ -130,7 +101,7 @@ export default function Discover() {
           <div className="space-y-6">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
               {discoverFeed?.data?.map((recipe, index) => {
-              const imageUrl = getFirstImage(recipe.image)
+              const imageUrl = recipe.image
 
               return (
                 <motion.button

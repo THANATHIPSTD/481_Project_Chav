@@ -4,30 +4,11 @@ import { X, Clock, Flame, Star, ChefHat, Info, ChevronDown, ChevronUp, BookmarkP
 import { useState, useEffect } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { BookmarkModal } from "./BookmarkModal"
-import { checkBookmarkStatus, removeBookmark } from "../services/api"
 import { authService } from "@/services/AuthService"
+import { bookmarkService, type BookmarkStatus } from "@/services/bookmarkService"
 import { handleRecipeImageError, handleRecipeImageLoad } from "@/lib/imageFallback"
 import { getDetailImageAttributes } from "@/lib/imageProxy"
-
-export interface RecipeDetail {
-  id: string
-  Name: string
-  Images: string | string[]
-  Description: string
-  AggregatedRating: number
-  RecipeCategory: string
-  CookTimeMins: number
-  PrepTimeMins: number
-  TotalTimeMins: number
-  Calories: number
-  ProteinContent: number
-  FatContent: number
-  CarbohydrateContent: number
-  FiberContent: number
-  RecipeIngredientParts: string
-  RecipeInstructions: string
-  Keywords: string
-}
+import type { RecipeDetail } from "@/types/recipe"
 
 interface RecipeModalProps {
   isOpen: boolean
@@ -44,7 +25,7 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
   const [currentImageIdx, setCurrentImageIdx] = useState(0)
   const [isBookmarkModalOpen, setIsBookmarkModalOpen] = useState(false)
 
-  const [bookmarkInfo, setBookmarkInfo] = useState<{ is_bookmarked: boolean; bookmark_id?: string } | null>(null)
+  const [bookmarkInfo, setBookmarkInfo] = useState<BookmarkStatus | null>(null)
   const isLoggedIn = authService.isAuthenticated()
 
   // Reset states when modal closes or opens
@@ -55,20 +36,20 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
       setIsBookmarkModalOpen(false)
       setBookmarkInfo(null)
     } else if (recipe && recipe.id && isLoggedIn) {
-        // Fetch bookmark status
-        checkBookmarkStatus(recipe.id)
-            .then(res => setBookmarkInfo(res.data))
-            .catch(err => console.error("Could not check bookmark status", err))
+        bookmarkService
+          .checkBookmarkStatus(recipe.id)
+          .then((status) => setBookmarkInfo(status))
+          .catch((err) => console.error("Could not check bookmark status", err))
     } else if (recipe && recipe.id) {
-        setBookmarkInfo({ is_bookmarked: false })
+        setBookmarkInfo({ isBookmarked: false })
     }
   }, [isOpen, recipe, isLoggedIn])
 
   const handleRemoveBookmark = async () => {
-    if (bookmarkInfo?.bookmark_id) {
+    if (bookmarkInfo?.bookmarkId) {
         try {
-            await removeBookmark(bookmarkInfo.bookmark_id)
-            setBookmarkInfo({ is_bookmarked: false })
+            await bookmarkService.removeBookmark(bookmarkInfo.bookmarkId)
+            setBookmarkInfo({ isBookmarked: false })
             if (onBookmarkRemoved) onBookmarkRemoved()
         } catch (err) {
             console.error(err)
@@ -246,7 +227,7 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
 
                 {/* Bookmark UI */}
                 <div className="mt-8 pt-8 border-t border-zinc-200/80">
-                  {bookmarkInfo?.is_bookmarked ? (
+                  {bookmarkInfo?.isBookmarked ? (
                     <button
                       onClick={handleRemoveBookmark}
                       className="w-full flex items-center justify-center gap-3 rounded-2xl bg-red-50 px-6 py-4 text-lg font-bold text-red-600 transition-all hover:bg-red-100 hover:text-red-700 hover:shadow-md border border-red-200/50 group"
@@ -279,7 +260,7 @@ export function RecipeModal({ isOpen, onClose, onBookmarkRemoved, recipe, loadin
                           isOpen={isBookmarkModalOpen}
                           onClose={() => setIsBookmarkModalOpen(false)}
                           onSaved={(bookmarkId) => {
-                            setBookmarkInfo({ is_bookmarked: true, bookmark_id: bookmarkId })
+                            setBookmarkInfo({ isBookmarked: true, bookmarkId })
                             setIsBookmarkModalOpen(false)
                           }}
                           recipeId={recipe.id}
