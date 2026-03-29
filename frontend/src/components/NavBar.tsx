@@ -4,6 +4,8 @@ import { Home, Compass, Bookmark, Search, LogOut, User, Settings, ChevronDown } 
 import { motion, AnimatePresence } from "framer-motion"
 import { authService } from "@/services/AuthService"
 
+import BaconFinderLogo from "@/assets/baconfindertext.png"
+
 export function NavBar() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -41,10 +43,7 @@ export function NavBar() {
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-900 text-white">
-            <span className="font-bold">C</span>
-          </div>
-          <span className="text-lg font-semibold tracking-tight text-zinc-900">Chav</span>
+          <img src={BaconFinderLogo} alt="Bacon Finder Logo" className="h-7 object-contain" />
         </Link>
 
         {/* Navigation Links */}

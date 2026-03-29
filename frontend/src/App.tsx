@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
 import { NavBar } from "@/components/NavBar"
 import Home from "./pages/Home"
+import Discover from "./pages/Discover"
 import Login from "./pages/Login"
 import Register from "./pages/Register"
 import Preferences from "./pages/Preferences"
@@ -14,6 +15,7 @@ function App() {
       <NavBar />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/recommendations" element={<Discover />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/bookmarks" element={<Bookmarks />} />
         <Route path="/login" element={<Login />} />

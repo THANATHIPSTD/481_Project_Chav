@@ -7,34 +7,39 @@ es = Elasticsearch("http://localhost:9200")
 INDEX_NAME = "recipes"
 
 
+def _extract_image_url(images):
+    image_url = None
+
+    if isinstance(images, list) and len(images) > 0:
+        image_url = images[0]
+    elif isinstance(images, str):
+        if images not in ["n/a", "nan"]:
+            cleaned = images.replace('c("', '').replace('")', '')
+            img_list = [u.strip().replace('"', '').replace("'", "") for u in cleaned.split(", ")]
+            valid_urls = [u for u in img_list if u.startswith("http")]
+            if valid_urls:
+                image_url = valid_urls[0]
+
+    return image_url
+
+
+def format_recipe_preview(recipe_id, source):
+    return {
+        "id": recipe_id,
+        "name": source.get('Name'),
+        "image": _extract_image_url(source.get('Images', [])),
+        "category": source.get('RecipeCategory'),
+        "rating": source.get('AggregatedRating'),
+        "calories": source.get('Calories'),
+        "total_time": source.get('TotalTimeMins'),
+        "ingredients": source.get('RecipeIngredientParts')
+    }
+
+
 def _format_recipe_hits(hits):
     results = []
     for hit in hits:
-        source = hit['_source']
-        
-        images = source.get('Images', [])
-        image_url = None
-        
-        if isinstance(images, list) and len(images) > 0:
-            image_url = images[0]
-        elif isinstance(images, str):
-            if images not in ["n/a", "nan"]:
-                cleaned = images.replace('c("', '').replace('")', '')
-                img_list = [u.strip().replace('"', '').replace("'", "") for u in cleaned.split(", ")]
-                valid_urls = [u for u in img_list if u.startswith("http")]
-                if valid_urls:
-                    image_url = valid_urls[0]
-
-        results.append({
-            "id": hit['_id'],
-            "name": source.get('Name'),
-            "image": image_url,
-            "category": source.get('RecipeCategory'),
-            "rating": source.get('AggregatedRating'),
-            "calories": source.get('Calories'),
-            "total_time": source.get('TotalTimeMins'),
-            "ingredients": source.get('RecipeIngredientParts')
-        })
+        results.append(format_recipe_preview(hit['_id'], hit['_source']))
     return results
 
 
